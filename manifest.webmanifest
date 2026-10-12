@@ -1,0 +1,16 @@
+{
+  "name": "クリティカルケア計算帳",
+  "short_name": "計算帳",
+  "description": "血ガス・循環・栄養・γ計算・スコアの計算補助",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EDF1F3",
+  "theme_color": "#0E5A8A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

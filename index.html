@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>クリティカルケア計算帳</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="計算帳">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#0E5A8A">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+</head>
+<body>
+<style>
+/* Layout: bedside-chart tool. Shared patient strip on top, one section card per calculation,
+   inputs then live results (side by side on iPad), iOS-style bottom tab bar. */
+:root{
+  --bg:#EDF1F3; --surface:#FFFFFF; --sunk:#F4F7F8; --ink:#14212B; --muted:#5A6A75; --line:#D3DCE1;
+  --accent:#0E5A8A; --accent-ink:#FFFFFF; --accent-soft:#DCEAF3;
+  --ok:#1D7550; --ok-soft:#DDF0E6; --warn:#9A5B00; --warn-soft:#FBEBD0;
+  --bad:#B8322A; --bad-soft:#F8DEDB; --low:#2B62A8; --low-soft:#DDE7F6;
+  --plus:#6B4FA0; --plus-soft:#ECE6F6;
+  --font-body:"BIZ UDPGothic","Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  --font-num:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:14px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1418; --surface:#152027; --sunk:#1B2830; --ink:#E2EAEE; --muted:#93A4AE; --line:#29383F;
+  --accent:#5AAFE3; --accent-ink:#06141C; --accent-soft:#183447;
+  --ok:#4EC08A; --ok-soft:#173528; --warn:#E9A944; --warn-soft:#3A2C12;
+  --bad:#F06B5F; --bad-soft:#3E1D1A; --low:#77AAF0; --low-soft:#1A2A42;
+  --plus:#B9A1EA; --plus-soft:#2B2340; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0D1418; --surface:#152027; --sunk:#1B2830; --ink:#E2EAEE; --muted:#93A4AE; --line:#29383F;
+  --accent:#5AAFE3; --accent-ink:#06141C; --accent-soft:#183447;
+  --ok:#4EC08A; --ok-soft:#173528; --warn:#E9A944; --warn-soft:#3A2C12;
+  --bad:#F06B5F; --bad-soft:#3E1D1A; --low:#77AAF0; --low-soft:#1A2A42;
+  --plus:#B9A1EA; --plus-soft:#2B2340; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.55;margin:0;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:1100px;margin:0 auto;padding-inline:16px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* header */
+.top{padding-block:14px 6px}
+.top .wrap{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.top h1{font-size:20px;margin:0;letter-spacing:.02em;text-wrap:balance}
+.top h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);letter-spacing:.04em}
+.ex-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ex-tag{font-size:12px;color:var(--warn);background:var(--warn-soft);padding:3px 9px;border-radius:99px}
+.ex-tag[data-on="0"]{display:none}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer}
+.btn:active{transform:scale(.97)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+.btn.sm{padding:6px 10px;font-size:12.5px;border-radius:8px}
+.btn.danger{color:var(--bad);border-color:var(--bad)}
+.btn:disabled{opacity:.5}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.dg{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center;padding:10px 12px;border-top:1px solid var(--line);background:var(--surface)}
+.res-h+div>.dg:first-child{border-top:0}
+.dg-t{display:grid;gap:1px;min-width:0}
+.dg-t b{font-size:14.5px;overflow-wrap:anywhere}
+.dg-t span{font-family:var(--font-num);font-size:12.5px}
+.dg-t small{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.dg .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.sync{border-top:1px solid var(--line);background:var(--surface);padding:10px 12px;display:block}
+.sync summary{cursor:pointer;font-size:13.5px;font-weight:700;color:var(--accent)}
+.sync[open]{display:grid;gap:8px}
+.sync textarea{width:100%;font:13px var(--font-num);background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:8px;resize:vertical}
+.about-body{padding:4px 16px 16px;max-width:72ch;font-size:14px}
+.about-body h3{font-size:14px;margin:14px 0 4px;letter-spacing:.04em}
+.about-body p,.about-body ul{margin:0 0 6px}
+.about-body ul{padding-left:1.2em}
+.src{margin:0;display:grid;gap:2px}
+.src dt{font-weight:700;font-size:13px;margin-top:8px}
+.src dd{margin:0;font-size:12.5px;color:var(--muted)}
+.imp{border-color:var(--accent)}
+.imp-body{padding:4px 16px 16px;display:grid;gap:10px}
+.imp-how{margin:0;padding-left:1.3em;font-size:13.5px;display:grid;gap:4px}
+.imp textarea{width:100%;font:15px/1.5 var(--font-num);background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical}
+.imp textarea:focus{border-color:var(--accent);outline:none;background:var(--surface)}
+.imp-sum{font-size:13.5px;font-weight:700}
+.imp-tbl{width:100%}
+.imp-tbl td{vertical-align:middle}
+.imp-tbl td:first-child{width:30px}
+.imp-tbl td.num small{display:block;text-align:right}
+.imp-tbl input[type=checkbox]{width:22px;height:22px;accent-color:var(--accent)}
+.imp-tbl .iv{width:6.5em;font:600 16px var(--font-num);background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 6px;text-align:right}
+.imp-tbl small{display:block;color:var(--muted);font-size:11.5px;overflow-wrap:anywhere}
+.imp-tbl tr.warn small.nt{color:var(--warn)}
+.imp-tbl tr.bad small.nt{color:var(--bad)}
+.imp-tbl tr.bad .iv{border-color:var(--bad)}
+.imp-tbl tr.warn .iv{border-color:var(--warn)}
+.imp-other{font-size:12.5px;color:var(--muted)}
+.hit{animation:hit 2.4s ease-out}
+@keyframes hit{0%,40%{box-shadow:0 0 0 3px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
+.empty{padding:16px 12px;background:var(--surface);color:var(--muted);font-size:13.5px}
+
+/* patient strip */
+.pt{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-block:8px 14px;display:grid;gap:10px}
+.pt-row{display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));gap:8px;align-items:end}
+.pt-derived{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.pt-derived b{font-family:var(--font-num);color:var(--ink);font-weight:700;font-size:14px;margin-left:4px}
+.pt .fi{padding-inline:8px}
+.lbl{font-size:11.5px;color:var(--muted);letter-spacing:.04em;display:block;margin-bottom:3px}
+
+.seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer;color:var(--muted);white-space:nowrap}
+.seg button.on{background:var(--accent);color:var(--accent-ink);font-weight:700}
+
+/* fields */
+.f{display:block;min-width:0}
+.fi{display:flex;align-items:center;background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding-inline:10px;min-height:44px}
+.fi:focus-within{border-color:var(--accent);background:var(--surface)}
+.fi input,.fi select{flex:1;min-width:0;border:0;background:transparent;font-family:var(--font-num);font-size:18px;font-weight:500;padding-block:8px;outline:none;width:100%}
+.fi select{font-family:var(--font-body);font-size:15px;-webkit-appearance:none;appearance:none}
+.fi.sel{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(-45deg,transparent 50%,var(--muted) 50%);background-size:6px 6px;background-position:calc(100% - 16px) 50%,calc(100% - 10px) 50%;background-repeat:no-repeat;padding-right:24px}
+.fi em{font-style:normal;font-size:12px;color:var(--muted);white-space:nowrap;padding-left:6px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:5px 11px;font-size:13px;cursor:pointer}
+.chip.on{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);font-weight:700}
+.span2{grid-column:1/-1}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;min-height:44px}
+.chk input{width:22px;height:22px;accent-color:var(--accent)}
+
+/* sections */
+.panel[hidden]{display:none}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:14px;overflow:hidden}
+.sec>header{padding:14px 16px 4px}
+.sec h2{font-size:17px;margin:0;text-wrap:balance}
+.sec h2 small{font-size:12px;font-weight:400;color:var(--muted);margin-left:6px}
+.io{display:grid;gap:14px;padding:12px 16px 16px}
+@media (min-width:820px){.io{grid-template-columns:minmax(0,5fr) minmax(0,6fr);align-items:start}}
+.ins{display:grid;gap:12px;min-width:0}
+.res{display:grid;gap:0;min-width:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--sunk)}
+.res-h{font-size:11.5px;letter-spacing:.08em;color:var(--muted);padding:8px 12px 4px}
+
+/* result rows */
+.r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:10px 12px;border-top:1px solid var(--line);background:var(--surface)}
+.res-h+.r{border-top:0}
+.rl{font-size:14px;font-weight:700;min-width:0}
+.rl small{display:block;font-size:11.5px;font-weight:400;color:var(--muted);line-height:1.4;margin-top:2px}
+.rv{text-align:right;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.rv b{font-family:var(--font-num);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+.rv i{font-style:normal;font-size:11.5px;color:var(--muted);margin-left:4px}
+.r.nil .rv b{color:var(--muted);font-weight:500}
+.pill{font-size:11.5px;border-radius:99px;padding:2px 8px;font-weight:700;white-space:nowrap}
+.pill:empty{display:none}
+.p-ok{color:var(--ok);background:var(--ok-soft)}
+.p-hi,.p-bad{color:var(--bad);background:var(--bad-soft)}
+.p-warn{color:var(--warn);background:var(--warn-soft)}
+.p-lo{color:var(--low);background:var(--low-soft)}
+.rn{grid-column:1/-1;font-size:12.5px;color:var(--muted)}
+.rn:empty{display:none}
+.r.hi .rv b,.r.bad .rv b{color:var(--bad)}
+.r.lo .rv b{color:var(--low)}
+.r.warn .rv b{color:var(--warn)}
+.plus{display:inline-block;font-size:10.5px;font-weight:700;color:var(--plus);background:var(--plus-soft);border-radius:6px;padding:0 5px;margin-left:6px;vertical-align:2px}
+.note{font-size:12.5px;color:var(--muted);padding:0 16px 14px;margin:0}
+.note b{color:var(--ink)}
+.interp{padding:10px 12px;background:var(--surface);border-top:1px solid var(--line);font-size:13.5px;display:grid;gap:4px}
+.interp .t{font-weight:700;font-size:15px}
+
+/* sub tabs */
+.subnav{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;margin-bottom:4px;scrollbar-width:none}
+.subnav::-webkit-scrollbar{display:none}
+.subnav button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:8px 16px;font-size:14px;cursor:pointer}
+.subnav button.on{background:var(--ink);color:var(--bg);border-color:var(--ink);font-weight:700}
+
+/* tables */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:7px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:11.5px;color:var(--muted);font-weight:400;letter-spacing:.04em;border-top:0}
+td.num{font-family:var(--font-num);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pts{display:inline-block;min-width:28px;text-align:center;font-family:var(--font-num);font-weight:700;border-radius:8px;padding:2px 6px;background:var(--sunk)}
+.pts.p1{background:var(--warn-soft);color:var(--warn)}
+.pts.p3{background:var(--bad-soft);color:var(--bad)}
+.total{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px;background:var(--accent-soft);border-radius:12px;margin:0 16px 14px}
+.total b{font-family:var(--font-num);font-size:34px}
+
+/* labs */
+.lab-search{margin:0 16px 10px}
+.lab-g{font-size:12px;letter-spacing:.08em;color:var(--muted);padding:12px 16px 4px;background:var(--sunk);border-top:1px solid var(--line)}
+.lab{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) 104px;gap:8px;align-items:center;padding:8px 16px;border-top:1px solid var(--line)}
+.lab .nm{font-weight:700;font-size:14px;min-width:0}
+.lab .nm small{display:block;font-weight:400;font-size:11.5px;color:var(--muted)}
+.lab .rg{font-family:var(--font-num);font-size:13px;min-width:0}
+.lab .rg small{display:block;font-family:var(--font-body);font-size:11px;color:var(--muted)}
+.lab .fi{min-height:38px}
+.lab .fi input{font-size:16px;padding-block:5px}
+.lab.hi .fi{border-color:var(--bad);background:var(--bad-soft)}
+.lab.lo .fi{border-color:var(--low);background:var(--low-soft)}
+.lab.ok .fi{border-color:var(--ok)}
+.fix{color:var(--warn)}
+
+/* bottom tabs */
+main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);z-index:10}
+.tabs .wrap{display:grid;grid-template-columns:repeat(6,1fr);padding-inline:4px}
+.tabs button{border:0;background:transparent;padding:8px 0 7px;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);cursor:pointer}
+.tabs svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs button.on{color:var(--accent);font-weight:700}
+.foot{font-size:12px;color:var(--muted);padding:4px 4px 16px;line-height:1.6}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="top"><div class="wrap">
+  <h1>クリティカルケア計算帳<small>特定行為研修　血ガス・循環・栄養・薬剤・スコア</small></h1>
+  <div class="ex-bar">
+    <span class="ex-tag" id="exTag" data-on="1">入力例を表示中</span>
+    <button class="btn" type="button" id="btnClear">すべてクリア</button>
+    <button class="btn" type="button" id="btnExample">例を入れる</button>
+    <button class="btn" type="button" id="btnAbout">出典・使い方</button>
+    <button class="btn pri" type="button" id="btnImp">文字から取り込む</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section class="sec imp" id="impPanel" hidden aria-label="文字から取り込む">
+    <header><h2>文字から取り込む<small>検査値・バイタル・呼吸器の設定</small></h2></header>
+    <div class="imp-body">
+      <ol class="imp-how">
+        <li>下の欄をタップし、もう一度タップして出るメニューから<b>「テキストをスキャン」</b>を選びます（キーボード上のスキャンのボタンでも使えます）。</li>
+        <li>カメラを検査結果の一覧などに向け、文字が黄色の枠で囲まれたら<b>「挿入」</b>を押します。写真は保存されません。</li>
+        <li>見つかった項目が下に並びます。値を確かめ、<b>「チェックした項目を入力」</b>を押してください。</li>
+      </ol>
+      <textarea id="impText" rows="6" placeholder="ここをタップして「テキストをスキャン」。写真アプリでコピーした文字の貼り付けもできます" aria-label="読み取った文字"></textarea>
+      <div class="btn-row"><button class="btn" type="button" id="impSample">見本の文字で試す</button><button class="btn" type="button" id="impClear">欄を空にする</button><button class="btn" type="button" id="impClose">閉じる</button></div>
+      <div id="impResult"></div>
+    </div>
+  </section>
+  <section class="pt" aria-label="患者情報">
+    <div class="pt-row">
+      <div><span class="lbl">性別</span><div class="seg" role="group" aria-label="性別">
+        <button type="button" data-set="sex" data-v="m">男</button><button type="button" data-set="sex" data-v="f">女</button></div></div>
+      <div id="ptFields" style="display:contents"></div>
+    </div>
+    <div class="pt-derived" id="ptDerived"></div>
+  </section>
+  <div id="panels"></div>
+  <p class="foot">計算結果は臨床判断を補助するための目安です。単位・入力値を必ず確認し、施設の基準値・プロトコル・医師の指示に従ってください。入力した値はこの画面の中だけで使い、どこにも保存・送信しません。<span class="plus">＋α</span> は元のExcelになかった項目です。</p>
+</main>
+
+<nav class="tabs" aria-label="分野"><div class="wrap" id="tabbar"></div></nav>
+
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const S={};
+let uid=0;
+
+/* ---------- values ---------- */
+function g(k){
+  let s=S[k]; if(s===undefined||s===null) return null;
+  s=String(s).replace(/[０-９．]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[−ー－‐]/g,'-').trim();
+  if(s==='') return null; const n=parseFloat(s); return isFinite(n)?n:null;
+}
+const ok=(...a)=>a.every(x=>x!==null&&isFinite(x));
+const sex=()=>S.sex==='f'?'f':'m';
+
+/* derived values used in many places */
+const D={
+  bsa(){const h=g('ht'),w=g('wt');return ok(h,w)&&h>0&&w>0?0.007184*Math.pow(w,0.425)*Math.pow(h,0.725):null},
+  bmi(){const h=g('ht'),w=g('wt');return ok(h,w)&&h>0?w/Math.pow(h/100,2):null},
+  ibw(){const h=g('ht');return ok(h)?Math.pow(h/100,2)*22:null},
+  pbw(){const h=g('ht');return ok(h)?(sex()==='m'?50:45.5)+0.91*(h-152.4):null},
+  fio2(){const f=g('fio2');return ok(f)?(f>1?f/100:f):null},
+  pAO2(){const f=D.fio2(),c=g('paco2');return ok(f,c)?f*713-c/0.8:null},
+  aado2(){const A=D.pAO2(),a=g('pao2');return ok(A,a)?A-a:null},
+  map(){const s=g('sbp'),d=g('dbp');return ok(s,d)?d+(s-d)/3:null},
+  cao2(){const hb=g('hb'),s=g('sao2'),p=g('pao2');return ok(hb,s)?1.34*hb*s/100+0.0031*(p||0):null},
+  cvo2(){const hb=g('hb'),s=g('svo2'),p=g('pvo2');return ok(hb,s)?1.34*hb*s/100+0.0031*(p||0):null},
+  gcs(){const e=g('gcsE'),m=g('gcsM');let v=S.gcsV==='T'?D.predV():g('gcsV');
+    if(!ok(e,m,v))return null; return e+m+(S.gcsV==='T'?Math.round(v):v)},
+  predV(){const e=g('gcsE'),m=g('gcsM');return ok(e,m)?0.4233*e+0.5713*m-0.3756:null}
+};
+
+/* ---------- builders ---------- */
+function F(k,label,unit,o={}){
+  const id='f-'+k+'-'+(uid++);
+  return `<label class="f${o.cls?' '+o.cls:''}" for="${id}"><span class="lbl">${label}</span><span class="fi"><input id="${id}" data-k="${k}" inputmode="${o.im||'decimal'}" autocomplete="off" placeholder="${o.ph||''}" aria-label="${label}"><em>${unit||''}</em></span>${o.chips?chips(k,o.chips):''}</label>`;
+}
+function Sel(k,label,opts,o={}){
+  const id='s-'+k+'-'+(uid++);
+  return `<label class="f${o.cls?' '+o.cls:''}" for="${id}"><span class="lbl">${label}</span><span class="fi sel"><select id="${id}" data-k="${k}">${opts.map(([v,t])=>`<option value="${v}">${t}</option>`).join('')}</select></span></label>`;
+}
+function chips(k,list){return `<span class="chips">${list.map(([v,t])=>`<button type="button" class="chip" data-set="${k}" data-v="${v}">${t}</button>`).join('')}</span>`}
+const RES=[];
+function R(label,unit,calc,o={}){
+  const id='r'+(uid++); RES.push(Object.assign({id,calc},o));
+  return `<div class="r nil" id="${id}"><div class="rl">${label}${o.plus?'<span class="plus">＋α</span>':''}${o.f?`<small>${o.f}</small>`:''}</div><div class="rv"><span><b>—</b><i>${unit||''}</i></span><span class="pill"></span></div><div class="rn"></div></div>`;
+}
+function sec(title,sub,ins,res,note){
+  return `<section class="sec"><header><h2>${title}${sub?`<small>${sub}</small>`:''}</h2></header><div class="io"><div class="ins">${ins}</div><div class="res"><div class="res-h">計算結果</div>${res}</div></div>${note?`<p class="note">${note}</p>`:''}</section>`;
+}
+/* range judge helper: returns [cls,text] */
+function rng(lo,hi,txt){return v=>{if(lo!==null&&v<lo)return['lo',txt&&txt[0]||'低'];if(hi!==null&&v>hi)return['hi',txt&&txt[2]||'高'];return['ok',txt&&txt[1]||'基準内']}}
+
+/* ---------- patient strip ---------- */
+$('#ptFields').innerHTML=F('age','年齢（歳）','',{im:'numeric'})+F('ht','身長（cm）','')+F('wt','体重（kg）','');
+
+/* ---------- panels ---------- */
+const P={};
+
+/* 呼吸 */
+P.resp=
+sec('血液ガス','酸塩基・酸素化',
+ `<div class="grid">${F('ph','pH','')}${F('pao2','PaO₂','mmHg')}${F('paco2','PaCO₂','mmHg')}${F('hco3','HCO₃⁻','mEq/L')}${F('be','BE','mEq/L',{im:'text',ph:'-3'})}${F('sao2','SaO₂','%')}
+ ${F('fio2','FiO₂','%',{cls:'span2',chips:[['21','室内気 21'],['30','30'],['40','40'],['50','50'],['60','60'],['100','100']]})}
+ ${F('na','Na','mEq/L')}${F('cl','Cl','mEq/L')}${F('alb','Alb','g/dL')}${F('hb','Hb','g/dL')}</div>`,
+ `<div id="abInterp"></div>`+
+ R('P/F比','',()=>{const a=g('pao2'),f=D.fio2();return ok(a,f)&&f>0?a/f:null},{dec:0,f:'PaO₂ ÷ FiO₂',
+   judge:v=>v>300?['ok','300超']:v>200?['warn','軽症域 ≦300']:v>100?['bad','中等症域 ≦200']:['bad','重症域 ≦100'],
+   note:()=>'ARDS（ベルリン定義・PEEP≥5）の重症度区分：≦300 軽症／≦200 中等症／≦100 重症'})+
+ R('PAO₂（肺胞気酸素分圧）','mmHg',D.pAO2,{dec:0,f:'FiO₂ ×（760−47）− PaCO₂ ÷ 0.8'})+
+ R('A-aDO₂','mmHg',D.aado2,{dec:0,f:'PAO₂ − PaO₂',
+   judge:v=>{const f=D.fio2(),age=g('age');if(!ok(f)||f>0.215)return null;const lim=ok(age)?age/4+4:15;return v>lim?['hi','開大']:['ok','基準内']},
+   note:()=>{const age=g('age'),f=D.fio2();return (ok(f)&&f>0.215?'高濃度酸素下ではA-aDO₂は大きくなります。正常値の比較は室内気（FiO₂ 21%）で。':'室内気の正常値 10〜15 mmHg')+(ok(age)?`／年齢補正の目安 ${(age/4+4).toFixed(0)} mmHg 以下（年齢÷4＋4）`:'')}})+
+ R('R-index（呼吸係数）','',()=>{const a=D.aado2(),p=g('pao2');return ok(a,p)&&p>0?a/p:null},{dec:2,f:'A-aDO₂ ÷ PaO₂'})+
+ R('アニオンギャップ（AG）','mEq/L',()=>{const n=g('na'),c=g('cl'),h=g('hco3');return ok(n,c,h)?n-(c+h):null},{dec:1,f:'Na −（Cl + HCO₃⁻）',judge:rng(null,14,[null,'12±2','AG開大'])})+
+ R('補正AG（Alb補正）','mEq/L',()=>{const n=g('na'),c=g('cl'),h=g('hco3'),a=g('alb');return ok(n,c,h,a)?n-(c+h)+2.5*(4-a):null},{dec:1,plus:1,f:'AG ＋ 2.5 ×（4 − Alb）',judge:rng(null,14,[null,'12±2','AG開大']),note:()=>'低アルブミン血症ではAGが見かけ上小さくなるため補正します'})+
+ R('CaO₂（動脈血酸素含量）','mL/dL',D.cao2,{dec:1,f:'1.34 × Hb × SaO₂ ＋ 0.0031 × PaO₂',judge:rng(17,20)}),
+ 'pHの判定と代償の予測は<span class="plus">＋α</span>です。混合性障害の最終判断は臨床経過と合わせて行ってください。')+
+sec('人工呼吸器','メカニクス',
+ `<div class="grid">${F('tv','1回換気量 VT','mL')}${F('rr','呼吸回数','回/分')}${F('pip','最高気道内圧 PIP','cmH₂O')}${F('pplat','プラトー圧（EIP）','cmH₂O')}${F('peep','PEEP','cmH₂O')}${F('ti','吸気時間','秒')}</div>`,
+ R('分時換気量 MV','L/分',()=>{const t=g('tv'),r=g('rr');return ok(t,r)?t*r/1000:null},{dec:1,f:'VT × 呼吸回数 ÷ 1000'})+
+ R('VT / 予測体重','mL/kg',()=>{const t=g('tv'),p=D.pbw();return ok(t,p)&&p>0?t/p:null},{dec:1,plus:1,f:'予測体重：男 50 / 女 45.5 ＋ 0.91 ×（身長 − 152.4）',judge:v=>v>8?['warn','8超']:v<4?['lo','4未満']:['ok','6〜8 目安']})+
+ R('動的コンプライアンス Cdyn','mL/cmH₂O',()=>{const t=g('tv'),p=g('pip'),e=g('peep');return ok(t,p,e)&&p>e?t/(p-e):null},{dec:1,f:'VT ÷（PIP − PEEP）'})+
+ R('静的コンプライアンス Cst','mL/cmH₂O',()=>{const t=g('tv'),p=g('pplat'),e=g('peep');return ok(t,p,e)&&p>e?t/(p-e):null},{dec:1,f:'VT ÷（プラトー圧 − PEEP）',judge:rng(50,100,['低下','50〜100',''])})+
+ R('気道抵抗 Raw','cmH₂O/L/秒',()=>{const t=g('tv'),p=g('pip'),pl=g('pplat'),ti=g('ti');return ok(t,p,pl,ti)&&t>0&&ti>0?(p-pl)/(t/1000/ti):null},{dec:1,f:'（PIP − プラトー圧）÷ 吸気流量（VT ÷ 吸気時間）',judge:v=>v>15?['warn','上昇']:['ok','15以下'],note:()=>'定常流（矩形波）を想定した近似値です'})+
+ R('駆動圧 ΔP','cmH₂O',()=>{const p=g('pplat'),e=g('peep');return ok(p,e)?p-e:null},{dec:0,f:'プラトー圧 − PEEP（= VT ÷ Cst）',judge:v=>v>=15?['warn','15以上']:['ok','15未満']})+
+ R('プラトー圧','cmH₂O',()=>g('pplat'),{dec:0,plus:1,f:'肺保護換気の上限目安 30',judge:v=>v>30?['bad','30超']:['ok','30以下']}),
+ 'Excelの「MV・RR」からVTを求める方式は、VTを直接入力する形に変更しました（MVは結果側に表示）。');
+
+/* 循環 */
+P.circ=
+sec('血圧・ショック指数','',
+ `<div class="grid">${F('sbp','収縮期血圧','mmHg')}${F('dbp','拡張期血圧','mmHg')}${F('hr','心拍数','回/分')}</div>`,
+ R('平均血圧 MAP','mmHg',D.map,{dec:0,f:'拡張期 ＋（収縮期 − 拡張期）÷ 3',judge:v=>v<65?['bad','65未満']:['ok','65以上']})+
+ R('脈圧','mmHg',()=>{const s=g('sbp'),d=g('dbp');return ok(s,d)?s-d:null},{dec:0,f:'収縮期 − 拡張期'})+
+ R('脈圧比','',()=>{const s=g('sbp'),d=g('dbp');return ok(s,d)&&s>0?(s-d)/s:null},{dec:2,f:'脈圧 ÷ 収縮期',judge:v=>v<0.25?['warn','0.25未満']:['ok','0.25以上'],note:v=>v!==null&&v<0.25?'CI 2.2 L/分/m² 未満の可能性が高い':''})+
+ R('ショック指数 SI','',()=>{const h=g('hr'),s=g('sbp');return ok(h,s)&&s>0?h/s:null},{dec:2,f:'心拍数 ÷ 収縮期血圧',
+   judge:v=>v<1?['ok','正常 0.5〜0.9']:v<1.5?['warn','1.0以上']:['bad','1.5以上'],
+   note:v=>v===null?'':v>=2?'出血量の目安 約2L以上（循環血液量の40%程度）':v>=1.5?'出血量の目安 約1.5L':v>=1?'出血量の目安 約1L':''}),null)+
+sec('酸素需給・血行動態','肺動脈カテーテル',
+ `<div class="grid">${F('co','心拍出量 CO','L/分')}${F('hr','心拍数','回/分')}${F('hb','Hb','g/dL')}${F('sao2','SaO₂','%')}${F('pao2','PaO₂','mmHg')}${F('svo2','SvO₂','%')}${F('pvo2','PvO₂','mmHg')}${F('cvp','CVP（RAP）','mmHg')}${F('mpap','平均肺動脈圧','mmHg')}${F('pawp','肺動脈楔入圧','mmHg')}</div>
+  <p class="lbl" style="margin:0">MAPは上の血圧から、BSAは患者情報（身長・体重）から計算します。</p>`,
+ R('心係数 CI','L/分/m²',()=>{const c=g('co'),b=D.bsa();return ok(c,b)?c/b:null},{dec:2,f:'CO ÷ BSA',judge:rng(2.5,4)})+
+ R('1回拍出量 SV','mL',()=>{const c=g('co'),h=g('hr');return ok(c,h)&&h>0?c*1000/h:null},{dec:0,f:'CO × 1000 ÷ 心拍数',judge:rng(60,100)})+
+ R('1回拍出量係数 SVI','mL/m²',()=>{const c=g('co'),h=g('hr'),b=D.bsa();return ok(c,h,b)&&h>0?c*1000/h/b:null},{dec:0,f:'SV ÷ BSA',judge:rng(33,47)})+
+ R('体血管抵抗 SVR','dyn·秒/cm⁵',()=>{const m=D.map(),v=g('cvp'),c=g('co');return ok(m,v,c)&&c>0?80*(m-v)/c:null},{dec:0,f:'80 ×（MAP − CVP）÷ CO',judge:rng(800,1200)})+
+ R('体血管抵抗係数 SVRI','dyn·秒/cm⁵/m²',()=>{const m=D.map(),v=g('cvp'),c=g('co'),b=D.bsa();return ok(m,v,c,b)&&c>0?80*(m-v)/c*b:null},{dec:0,f:'SVR × BSA',judge:rng(1970,2390)})+
+ R('肺血管抵抗 PVR','dyn·秒/cm⁵',()=>{const m=g('mpap'),w=g('pawp'),c=g('co');return ok(m,w,c)&&c>0?80*(m-w)/c:null},{dec:0,f:'80 ×（平均肺動脈圧 − PAWP）÷ CO',judge:rng(null,250)})+
+ R('肺血管抵抗係数 PVRI','dyn·秒/cm⁵/m²',()=>{const m=g('mpap'),w=g('pawp'),c=g('co'),b=D.bsa();return ok(m,w,c,b)&&c>0?80*(m-w)/c*b:null},{dec:0,f:'PVR × BSA',judge:rng(255,285)})+
+ R('CaO₂（動脈血酸素含量）','mL/dL',D.cao2,{dec:1,f:'1.34 × Hb × SaO₂ ＋ 0.0031 × PaO₂',judge:rng(17,20)})+
+ R('CvO₂（混合静脈血酸素含量）','mL/dL',D.cvo2,{dec:1,f:'1.34 × Hb × SvO₂ ＋ 0.0031 × PvO₂',judge:rng(12,15)})+
+ R('C(a-v)O₂','mL/dL',()=>{const a=D.cao2(),v=D.cvo2();return ok(a,v)?a-v:null},{dec:1,f:'CaO₂ − CvO₂',judge:rng(4,6)})+
+ R('S(a-v)O₂','%',()=>{const a=g('sao2'),v=g('svo2');return ok(a,v)?a-v:null},{dec:0,f:'SaO₂ − SvO₂',judge:rng(20,36)})+
+ R('酸素運搬量 DO₂','mL/分',()=>{const c=g('co'),a=D.cao2();return ok(c,a)?c*a*10:null},{dec:0,f:'CO × CaO₂ × 10',judge:rng(950,1150)})+
+ R('酸素運搬係数 DO₂I','mL/分/m²',()=>{const c=g('co'),a=D.cao2(),b=D.bsa();return ok(c,a,b)?c*a*10/b:null},{dec:0,f:'DO₂ ÷ BSA',judge:rng(500,600)})+
+ R('酸素消費量 VO₂','mL/分',()=>{const c=g('co'),a=D.cao2(),v=D.cvo2();return ok(c,a,v)?c*(a-v)*10:null},{dec:0,f:'CO ×（CaO₂ − CvO₂）× 10',judge:rng(200,250)})+
+ R('酸素消費係数 VO₂I','mL/分/m²',()=>{const c=g('co'),a=D.cao2(),v=D.cvo2(),b=D.bsa();return ok(c,a,v,b)?c*(a-v)*10/b:null},{dec:0,f:'VO₂ ÷ BSA',judge:rng(120,160)})+
+ R('酸素摂取率 O₂ER','%',()=>{const a=D.cao2(),v=D.cvo2();return ok(a,v)&&a>0?(a-v)/a*100:null},{dec:0,f:'VO₂ ÷ DO₂',judge:rng(22,30)})+
+ R('SvO₂','%',()=>g('svo2'),{dec:0,f:'入力値の判定',judge:rng(60,80)}),
+ '正常値はExcel「酸素分析パラメータ／血行動態パラメータ」の値です。Excel内のVO₂（÷10）とCaO₂（SaO₂を%のまま計算）は、単位が合うよう修正しています。');
+
+/* 栄養 */
+const AF=[['1.0','寝たきり 1.0'],['1.2','ベッド上安静 1.2'],['1.3','ベッド外活動 1.3'],['1.5','軽労働 1.5']];
+const SF=[['1.0','ストレスなし 1.0'],['1.1','軽度手術 1.1'],['1.2','中等度手術 1.2'],['1.5','高度手術・重症感染 1.5'],['1.35','骨折 1.35'],['1.6','頭部外傷 1.6'],['1.8','広範囲熱傷 1.8']];
+P.nut=
+sec('栄養評価','Harris-Benedict',
+ `<div class="grid">${F('af','活動係数','',{cls:'span2',chips:AF})}${F('sf','傷害（ストレス）係数','',{cls:'span2',chips:SF})}</div>`,
+ R('BMI','kg/m²',D.bmi,{dec:1,f:'体重 ÷ 身長(m)²',judge:v=>v<18.5?['lo','低体重']:v<25?['ok','普通体重']:['hi','肥満']})+
+ R('標準体重','kg',D.ibw,{dec:1,f:'身長(m)² × 22'})+
+ R('肥満度','%',()=>{const w=g('wt'),i=D.ibw();return ok(w,i)&&i>0?(w-i)/i*100:null},{dec:0,f:'（実体重 − 標準体重）÷ 標準体重 × 100',judge:v=>v<-10?['lo','やせ']:v<=10?['ok','±10%以内']:v<20?['warn','過体重']:['hi','肥満']})+
+ R('BEE（基礎エネルギー消費量）','kcal/日',()=>{const w=g('wt'),h=g('ht'),a=g('age');if(!ok(w,h,a))return null;return sex()==='m'?66.47+13.75*w+5*h-6.76*a:655.1+9.56*w+1.85*h-4.67*a},{dec:0,
+   f:'男：66.47＋13.75×体重＋5×身長−6.76×年齢<br>女：655.1＋9.56×体重＋1.85×身長−4.67×年齢',note:()=>`性別「${sex()==='m'?'男':'女'}」の式で計算`})+
+ R('必要エネルギー量','kcal/日',()=>{const w=g('wt'),h=g('ht'),a=g('age'),af=g('af'),sf=g('sf');if(!ok(w,h,a,af,sf))return null;const b=sex()==='m'?66.47+13.75*w+5*h-6.76*a:655.1+9.56*w+1.85*h-4.67*a;return b*af*sf},{dec:0,f:'BEE × 活動係数 × 傷害係数'}),null)+
+sec('水分量','',
+ `<div class="grid">${F('temp','体温','℃')}${F('wfac','必要水分の係数','mL/kg',{chips:[['30','30'],['33','33'],['35','35']]})}</div>`,
+ R('必要水分量','mL/日',()=>{const w=g('wt'),k=g('wfac');return ok(w,k)?w*k:null},{dec:0,f:'体重 × 係数（Excelは33）'})+
+ R('不感蒸泄量','mL/日',()=>{const w=g('wt'),t=g('temp');return ok(w,t)?w*15+200*Math.max(0,t-36.8):null},{dec:0,f:'体重 × 15 ＋ 200 ×（体温 − 36.8）',note:()=>{const t=g('temp');return ok(t)&&t<=36.8?'体温が36.8℃以下のため、発熱分は0として計算':''}}),null);
+
+/* 薬剤 */
+P.drug=
+sec('持続投与量（γ計算）','μg/kg/分',
+ `${Sel('drug','登録した組成から選ぶ',[['','手入力']],{})}<p class="lbl" id="drugMemo" style="margin:0"></p>
+  <div class="grid">${F('dmg','薬剤量','mg')}${F('dml','総量','mL')}${F('wt','体重','kg')}</div>
+  <div class="grid">${F('rate','現在の流量','mL/時')}${F('tgamma','目標の投与量','γ',{chips:[['0.05','0.05'],['0.1','0.1'],['0.2','0.2'],['3','3'],['5','5']]})}</div>`,
+ R('濃度','μg/mL',()=>{const m=g('dmg'),v=g('dml');return ok(m,v)&&v>0?m*1000/v:null},{dec:1,f:'薬剤量(mg) × 1000 ÷ 総量(mL)'})+
+ R('現在の投与量','γ',()=>{const m=g('dmg'),v=g('dml'),r=g('rate'),w=g('wt');return ok(m,v,r,w)&&v>0&&w>0?(m/v)*r/w/60*1000:null},{dec:3,f:'（薬剤量 ÷ 総量）× 流量 ÷ 体重 ÷ 60 × 1000'})+
+ R('目標に必要な流量','mL/時',()=>{const m=g('dmg'),v=g('dml'),t=g('tgamma'),w=g('wt');return ok(m,v,t,w)&&m>0?t*w*60/(m*1000/v):null},{dec:2,plus:1,f:'目標γ × 体重 × 60 ÷ 濃度(μg/mL)'})+
+ R('1 mL/時 あたり','γ',()=>{const m=g('dmg'),v=g('dml'),w=g('wt');return ok(m,v,w)&&v>0&&w>0?(m/v)/w/60*1000:null},{dec:3,plus:1,f:'流量を1 mL/時 変えたときの変化量'})+
+ `<div class="tbl-wrap" style="background:var(--surface);border-top:1px solid var(--line)"><table id="rateTbl"></table></div>`,
+ '組成は下の「薬剤組成の登録」で追加・編集できます。γ = μg/kg/分。')+
+`<section class="sec" id="drugMgr"><header><h2>薬剤組成の登録<small id="dgStore">読み込み中…</small></h2></header>
+ <div class="io"><form class="ins" id="dgForm" autocomplete="off" novalidate>
+  <div class="grid">
+   <label class="f span2" for="dg-name"><span class="lbl">薬剤名・組成名</span><span class="fi"><input id="dg-name" maxlength="60" placeholder="例：ノルアドレナリン 4mg/20mL" style="font-family:var(--font-body);font-size:16px"></span></label>
+   <label class="f" for="dg-mg"><span class="lbl">薬剤量</span><span class="fi"><input id="dg-mg" inputmode="decimal"><em>mg</em></span></label>
+   <label class="f" for="dg-ml"><span class="lbl">総量</span><span class="fi"><input id="dg-ml" inputmode="decimal"><em>mL</em></span></label>
+   <label class="f span2" for="dg-memo"><span class="lbl">調製メモ（任意）</span><span class="fi"><input id="dg-memo" maxlength="120" placeholder="例：1A(1mg/1mL)×4＋生食16mL" style="font-family:var(--font-body);font-size:16px"></span></label>
+  </div>
+  <div class="btn-row"><button class="btn pri" type="submit" id="dgSave">登録する</button><button class="btn" type="button" id="dgFromCur">上の薬剤量・総量を取り込む</button><button class="btn" type="button" id="dgCancel" hidden>編集をやめる</button></div>
+  <p class="lbl" id="dgMsg" style="margin:0" role="status"></p>
+ </form>
+ <div class="res"><div class="res-h">登録済みの組成</div><div id="dgList"></div>
+  <details class="sync"><summary>ほかの端末と揃える（書き出し・取り込み）</summary>
+   <p class="lbl">「書き出す」で一覧を文字にしてコピーします。もう一方の端末で下の欄に貼り付け、「取り込む」を押してください。同じ名前・同じ量の組成は重複して登録しません。</p>
+   <textarea id="dgText" rows="4" aria-label="書き出し・取り込み用の文字" placeholder="ここに貼り付け"></textarea>
+   <div class="btn-row"><button class="btn" type="button" id="dgExport">書き出す（コピー）</button><button class="btn pri" type="button" id="dgImport">取り込む</button></div>
+  </details></div></div>
+ <p class="note">μg単位の薬剤はmgに換算して入力します（例：500μg → 0.5mg）。院内の調製方法・薬剤部の希釈表と照らし合わせてから登録してください。</p></section>`;
+
+/* 評価（スコア） */
+const AP={temp:[[41,4],[39,3],[38.5,1],[36,0],[34,1],[32,2],[30,3],[-1e9,4]],
+ map:[[160,4],[130,3],[110,2],[70,0],[50,2],[-1e9,4]],hr:[[180,4],[140,3],[110,2],[70,0],[55,2],[40,3],[-1e9,4]],
+ resp:[[50,4],[35,3],[25,1],[12,0],[10,1],[6,2],[-1e9,4]],aado2:[[500,4],[350,3],[200,2],[-1e9,0]],
+ pao2:[[70.0001,0],[61,1],[55,3],[-1e9,4]],ph:[[7.7,4],[7.6,3],[7.5,1],[7.33,0],[7.25,2],[7.15,3],[-1e9,4]],
+ hco3:[[52,4],[41,3],[32,1],[22,0],[18,2],[15,3],[-1e9,4]],na:[[180,4],[160,3],[155,2],[150,1],[130,0],[120,2],[111,3],[-1e9,4]],
+ k:[[7,4],[6,3],[5.5,1],[3.5,0],[3,1],[2.5,2],[-1e9,4]],cr:[[3.5,4],[2,3],[1.5,2],[0.6,0],[-1e9,2]],
+ ht:[[60,4],[50,2],[46,1],[30,0],[20,2],[-1e9,4]],wbc:[[40,4],[20,2],[15,1],[3,0],[1,2],[-1e9,4]],age:[[75,6],[65,5],[55,3],[45,2],[-1e9,0]]};
+function band(x,t){if(!ok(x))return null;for(const [m,p] of t)if(x>=m)return p;return null}
+const GE=[['','—'],['4','4 自発的に開眼'],['3','3 呼びかけで開眼'],['2','2 痛み刺激で開眼'],['1','1 開眼しない']];
+const GV=[['','—'],['5','5 見当識あり'],['4','4 混乱した会話'],['3','3 不適当な言葉'],['2','2 理解不能の発声'],['1','1 発語なし'],['T','T 挿管中（予測Vで計算）']];
+const GM=[['','—'],['6','6 命令に従う'],['5','5 疼痛部位を認識'],['4','4 逃避する'],['3','3 異常屈曲（除皮質）'],['2','2 異常伸展（除脳）'],['1','1 動かない']];
+const gcsIns=`<div class="grid">${Sel('gcsE','E 開眼',GE,{cls:'span2'})}${Sel('gcsV','V 言語',GV,{cls:'span2'})}${Sel('gcsM','M 運動',GM,{cls:'span2'})}</div>`;
+P.score=`<div class="subnav" role="tablist">
+  <button type="button" data-sub="gcs">GCS</button><button type="button" data-sub="apache">APACHE II</button><button type="button" data-sub="burn">熱傷</button><button type="button" data-sub="renal">腎機能</button></div>
+<div data-subp="gcs">`+
+sec('グラスゴー・コーマ・スケール','GCS',gcsIns,
+ R('GCS 合計','点',D.gcs,{dec:0,f:'E ＋ V ＋ M（Vが挿管中は予測Vを四捨五入）',judge:v=>v>=13?['ok','軽症 13〜15']:v>=9?['warn','中等症 9〜12']:['bad','重症 8以下']})+
+ R('予測 V（挿管中）','',D.predV,{dec:2,f:'0.4233 × E ＋ 0.5713 × M − 0.3756',note:()=>S.gcsV==='T'?'V欄が「T」のため、この値を合計に使っています':'Vが評価できないとき（挿管中など）に使う推定値'}),null)+
+`</div><div data-subp="apache" hidden>
+<section class="sec"><header><h2>APACHE II<small>ICU入室後24時間で最も異常な値</small></h2></header>
+ <div class="io"><div class="ins"><div class="grid">${F('temp','体温','℃')}${F('sbp','収縮期血圧','mmHg')}${F('dbp','拡張期血圧','mmHg')}${F('hr','心拍数','回/分')}${F('resp','呼吸数（実測）','回/分')}${F('fio2','FiO₂','%')}${F('pao2','PaO₂','mmHg')}${F('paco2','PaCO₂','mmHg')}${F('ph','動脈血pH','')}${F('hco3','HCO₃⁻','mEq/L')}${F('na','Na','mEq/L')}${F('k','K','mEq/L')}${F('cr','Cr','mg/dL')}${F('hct','Ht','%')}${F('wbc','白血球','×10³/μL')}</div>
+  <label class="chk"><input type="checkbox" id="chk-arf" data-k="arf">急性腎不全あり（Crの点数を2倍）<span class="plus">＋α</span></label>
+  ${gcsIns}
+  ${Sel('chronic','慢性疾患の加点',[['0','なし 0点'],['2','あり：待機手術後 2点'],['5','あり：非手術・緊急手術後 5点']],{})}
+  <p class="lbl" style="margin:0">年齢は患者情報から。慢性疾患の加点はExcelにない項目です<span class="plus">＋α</span>。</p>
+ </div>
+ <div class="res"><div class="res-h">項目別の得点</div><div class="tbl-wrap" style="background:var(--surface)"><table id="apTbl"></table></div></div></div>
+ <div class="total"><span>APACHE II 合計<br><small id="apSub" style="color:var(--muted)"></small></span><b id="apTotal">—</b></div>
+ <p class="note">FiO₂ 50%以上はA-aDO₂、50%未満はPaO₂で採点。pHがあればpHを使い、HCO₃⁻はpHがないときのみ使用。未測定の項目は0点。Excelの表のNa欄は列が1つずれていたため、原典（Knaus 1985）の配点で計算しています。</p>
+</section>
+</div><div data-subp="burn" hidden>`+
+sec('熱傷','重症度と初期輸液',
+ `<div class="grid">${F('b2','Ⅱ度 熱傷面積','%')}${F('b3','Ⅲ度 熱傷面積','%')}${F('wt','体重','kg')}${F('age','年齢','歳',{im:'numeric'})}</div>`,
+ R('熱傷指数 BI','',()=>{const a=g('b2'),b=g('b3');return ok(a,b)?a/2+b:null},{dec:1,f:'Ⅱ度% ÷ 2 ＋ Ⅲ度%',judge:v=>v>=10?['bad','10以上 重症']:['ok','10未満']})+
+ R('熱傷予後指数 PBI','',()=>{const a=g('b2'),b=g('b3'),y=g('age');return ok(a,b,y)?a/2+b+y:null},{dec:0,f:'BI ＋ 年齢',judge:v=>v>120?['bad','致死的']:v>100?['bad','救命困難']:v>80?['warn','救命率 約50%']:['ok','80以下'],note:()=>'120超：致死的／100〜120：救命困難／80〜100：救命率50%程度／80以下：救命の可能性が高い'})+
+ R('輸液量（バクスター法）','mL/24時間',()=>{const a=g('b2'),b=g('b3'),w=g('wt');return ok(a,b,w)?4*w*(a+b):null},{dec:0,f:'4 mL × 体重 ×（Ⅱ度＋Ⅲ度）%'})+
+ R('最初の8時間','mL/時',()=>{const a=g('b2'),b=g('b3'),w=g('wt');return ok(a,b,w)?4*w*(a+b)/2/8:null},{dec:0,f:'24時間量の1/2を8時間で',note:()=>{const a=g('b2'),b=g('b3'),w=g('wt');return ok(a,b,w)?`8時間で ${Math.round(4*w*(a+b)/2)} mL`:''}})+
+ R('次の16時間','mL/時',()=>{const a=g('b2'),b=g('b3'),w=g('wt');return ok(a,b,w)?4*w*(a+b)/2/16:null},{dec:0,f:'残りの1/2を16時間で',note:()=>{const a=g('b2'),b=g('b3'),w=g('wt');return ok(a,b,w)?`16時間で ${Math.round(4*w*(a+b)/2)} mL`:''}}),
+ '時間は受傷時刻から数えます。輸液量は尿量（0.5 mL/kg/時 以上）を指標に調整します。')+
+`</div><div data-subp="renal" hidden>`+
+sec('腎機能','推定クレアチニンクリアランス',
+ `<div class="grid">${F('cr','血清Cr','mg/dL')}${F('age','年齢','歳',{im:'numeric'})}${F('wt','体重','kg')}</div>`,
+ R('CCr（Cockcroft-Gault）','mL/分',()=>{const a=g('age'),w=g('wt'),c=g('cr');if(!ok(a,w,c)||c<=0)return null;const v=(140-a)*w/(72*c);return sex()==='f'?v*0.85:v},{dec:0,f:'（140 − 年齢）× 体重 ÷（72 × Cr）、女性は × 0.85',judge:v=>v<30?['bad','30未満']:v<60?['warn','30〜59']:['ok','60以上'],note:()=>`性別「${sex()==='m'?'男':'女'}」で計算。薬剤の投与量調整に使用`})+
+ R('eGFR（日本人の推算式）','mL/分/1.73m²',()=>{const a=g('age'),c=g('cr');if(!ok(a,c)||c<=0||a<=0)return null;const v=194*Math.pow(c,-1.094)*Math.pow(a,-0.287);return sex()==='f'?v*0.739:v},{dec:0,plus:1,f:'194 × Cr^−1.094 × 年齢^−0.287（女性 × 0.739）',
+   judge:v=>v>=90?['ok','G1']:v>=60?['ok','G2']:v>=45?['warn','G3a']:v>=30?['warn','G3b']:v>=15?['bad','G4']:['bad','G5'],note:()=>'CKDのGFR区分を表示'}),null)+`</div>`;
+
+/* 基準値 */
+const LABS=[
+ ['血液ガス',[['pH','ph','7.35〜7.45',7.35,7.45,''],['PaO₂','pao2','80〜100',80,100,'mmHg'],['PaCO₂','paco2','35〜45',35,45,'mmHg'],['HCO₃⁻','hco3','22〜26',22,26,'mEq/L'],['BE','be','−2〜+2',-2,2,'mEq/L'],['SaO₂','sao2','93〜98',93,98,'%']]],
+ ['血算',[['RBC','rbc','440〜560',440,560,'万/μL','m'],['RBC','rbc','380〜520',380,520,'万/μL','f'],['WBC','wbc','3.5〜8.5',3.5,8.5,'×10³/μL',null,'Excelは「35〜85 万個/μL」。単位を×10³/μLに修正'],['Hb','hb','14〜18',14,18,'g/dL','m'],['Hb','hb','11〜15',11,15,'g/dL','f'],['Ht','hct','42〜45',42,45,'%','m'],['Ht','hct','38〜42',38,42,'%','f'],['PLT','plt','15〜40',15,40,'万/μL']]],
+ ['凝固',[['APTT','aptt','30〜45',30,45,'秒'],['PT','pt','12〜14',12,14,'秒'],['PT活性','ptp','70〜140',70,140,'%'],['PT-INR','inr','0.9〜1.1',0.9,1.1,'','','Excelは「1.0」'],['フィブリノゲン','fib','200〜400',200,400,'mg/dL'],['FDP','fdp','5未満',null,4.999,'μg/mL','','Excelの単位「μl/ml」を修正'],['Dダイマー','dd','1.0以下',null,1.0,'μg/mL','','Excelは「2.0〜8.0 mg/dL」。施設の基準値を確認']]],
+ ['炎症・肝胆膵',[['CRP','crp','0.3以下',null,0.3,'mg/dL'],['AST（GOT）','ast','8〜33',8,33,'IU/L'],['ALT（GPT）','alt','3〜30',3,30,'IU/L'],['LDH','ldh','200〜470',200,470,'U/L'],['ALP','alp','70〜270',70,270,'U/L'],['γ-GTP','ggt','4〜50',4,50,'U/L'],['T-Bil','tbil','0.2〜1.2',0.2,1.2,'mg/dL'],['アミラーゼ','amy','42〜120',42,120,'IU/L'],['アンモニア','nh3','15〜60',15,60,'μg/dL']]],
+ ['蛋白・脂質・糖',[['TP','tp','6.5〜8.0',6.5,8.0,'g/dL'],['Alb','alb','3.8〜5.1',3.8,5.1,'g/dL'],['TTT','ttt','0〜5',0,5,'単位'],['ZTT','ztt','4〜12',4,12,'単位'],['総コレステロール','tc','130〜230',130,230,'mg/dL'],['HDLコレステロール','hdl','40〜70',40,70,'mg/dL'],['中性脂肪','tg','60〜130',60,130,'mg/dL'],['血糖','glu','60〜110',60,110,'mg/dL']]],
+ ['腎・電解質・筋',[['BUN','bun','8〜20',8,20,'mg/dL'],['Cr','cr','0.7〜1.5',0.7,1.5,'mg/dL','m'],['Cr','cr','0.5〜1.2',0.5,1.2,'mg/dL','f'],['尿酸','ua','3.0〜7.0',3,7,'mg/dL','m'],['尿酸','ua','0.5〜6.0',0.5,6,'mg/dL','f'],['CPK','cpk','58〜145',58,145,'U/L','m'],['CPK','cpk','29〜145',29,145,'U/L','f'],['Na','na','135〜147',135,147,'mEq/L'],['K','k','3.6〜5.0',3.6,5.0,'mEq/L'],['Cl','cl','96〜107',96,107,'mEq/L'],['Ca','ca','8.3〜10.5',8.3,10.5,'mg/dL'],['P','ip','2.7〜4.5',2.7,4.5,'mg/dL']]],
+ ['血行動態',[['CO 心拍出量','co','4〜8',4,8,'L/分'],['RAP（CVP）','cvp','1〜7',1,7,'mmHg'],['RVSP 右室収縮期圧','rvsp','15〜25',15,25,'mmHg'],['RVDP 右室拡張期圧','rvdp','0〜8',0,8,'mmHg'],['PASP 肺動脈収縮期圧','pasp','15〜25',15,25,'mmHg'],['PADP 肺動脈拡張期圧','padp','8〜15',8,15,'mmHg'],['PAWP 肺動脈楔入圧','pawp','6〜12',6,12,'mmHg'],['SvO₂','svo2','60〜80',60,80,'%'],['Qs/Qt 肺内シャント率','qsqt','3〜5',3,5,'%'],['P(A-a)O₂','aado2in','10〜15',10,15,'mmHg']]]
+];
+const LABROWS=[];
+P.lab=`<section class="sec"><header><h2>検査の基準値<small>値を入れると判定</small></h2></header>
+ <div class="lab-search"><span class="fi"><input id="labQ" type="search" placeholder="項目名で絞り込み（例：Na、肝）" aria-label="項目名で絞り込み" autocomplete="off"></span></div>
+ ${LABS.map(([gname,rows])=>`<div class="lab-g" data-g="${gname}">${gname}</div>`+rows.map(([n,k,r,lo,hi,u,sx,fix])=>{const i=LABROWS.length;LABROWS.push({n,k,lo,hi,sx,g:gname});const id='lab-'+i;
+  return `<div class="lab" id="${id}" data-sx="${sx||''}" data-g="${gname}" data-n="${n}"><div class="nm">${n}${sx?`<small>${sx==='m'?'男性':'女性'}</small>`:''}${fix?`<small class="fix">${fix}</small>`:''}</div><div class="rg">${r}<small>${u}</small></div><span class="fi"><input id="${id}-in" data-k="${k}" inputmode="${k==='be'?'text':'decimal'}" autocomplete="off" aria-label="${n}の値"></span></div>`}).join('')).join('')}
+ <p class="note" style="padding-top:12px">基準値はExcel「検査結果表」の値です（性別で切り替え）。施設・検査法によって基準値は異なります。ここで入れた値は、他のタブの同じ項目にも反映されます。</p></section>
+<section class="sec about" id="about"><header><h2>使用目的と出典</h2></header>
+ <div class="about-body">
+  <h3>使用目的</h3>
+  <p>医師・看護師などの医療従事者が、教科書や学会ガイドラインに載っている計算式・スコア表を使って計算するときの<b>計算補助・学習用</b>のツールです。病名の診断や治療方針の決定は行いません。表示した結果は、使用者が式と入力値を確かめたうえで、自分の判断で使ってください。</p>
+  <ul>
+   <li>すべての結果に計算式を表示しています。電卓で検算できます（体表面積・eGFRのようにべき乗を含む式は関数電卓で）。</li>
+   <li>「高・低」などの表示は、入力値をここに書いた基準値・区分に当てはめただけのものです。</li>
+   <li>患者の氏名などは入力しません。入力値は端末の外に送信しません。</li>
+  </ul>
+  <h3>計算式・スコアの出典</h3>
+  <dl class="src">
+   <dt>肺胞気式（PAO₂・A-aDO₂）、CaO₂・CvO₂・DO₂・VO₂（Fickの原理）、SVR・PVR</dt><dd>呼吸・循環生理学の標準的な教科書（West JB. Respiratory Physiology ほか）</dd>
+   <dt>アニオンギャップ・アルブミン補正</dt><dd>Figge J, et al. Crit Care Med 1998;26:1807-10</dd>
+   <dt>代償の予測式（Winterの式ほか）</dt><dd>Albert MS, Dell RB, Winters RW. Ann Intern Med 1967;66:312-22／酸塩基平衡の標準的な教科書</dd>
+   <dt>P/F比のARDS重症度区分</dt><dd>ARDS Definition Task Force. JAMA 2012;307:2526-33（ベルリン定義）／ARDS診療ガイドライン2021（日本集中治療医学会・日本呼吸器学会・日本呼吸療法医学会）</dd>
+   <dt>予測体重・1回換気量・プラトー圧</dt><dd>ARDS Network. N Engl J Med 2000;342:1301-8</dd>
+   <dt>駆動圧</dt><dd>Amato MBP, et al. N Engl J Med 2015;372:747-55</dd>
+   <dt>ショック指数と出血量の目安</dt><dd>外傷初期診療ガイドライン JATEC（日本外傷学会・日本救急医学会）</dd>
+   <dt>BMIの区分</dt><dd>日本肥満学会 肥満症診療ガイドライン</dd>
+   <dt>Harris-Benedictの式</dt><dd>Harris JA, Benedict FG. A Biometric Study of Basal Metabolism in Man. 1919</dd>
+   <dt>体表面積（DuBois式）</dt><dd>Du Bois D, Du Bois EF. Arch Intern Med 1916;17:863-71</dd>
+   <dt>Cockcroft-Gaultの式</dt><dd>Cockcroft DW, Gault MH. Nephron 1976;16:31-41</dd>
+   <dt>eGFR（日本人の推算式）とGFR区分</dt><dd>Matsuo S, et al. Am J Kidney Dis 2009;53:982-92／エビデンスに基づくCKD診療ガイドライン（日本腎臓学会）</dd>
+   <dt>GCS</dt><dd>Teasdale G, Jennett B. Lancet 1974;2:81-4</dd>
+   <dt>挿管中の予測V</dt><dd>Rutledge R, et al. J Trauma 1996;41:514-22</dd>
+   <dt>APACHE II</dt><dd>Knaus WA, et al. Crit Care Med 1985;13:818-29</dd>
+   <dt>熱傷指数・熱傷予後指数・Baxter法</dt><dd>熱傷診療ガイドライン（日本熱傷学会）／Baxter CR, Shires T. Ann N Y Acad Sci 1968;150:874-94</dd>
+   <dt>γ（μg/kg/分）</dt><dd>単位換算のみ。組成は使用者が登録したもの</dd>
+   <dt>検査の基準値</dt><dd>特定行為研修資料「検査結果表」（各施設の基準値を優先）</dd>
+  </dl>
+ </div></section>`;
+
+/* ---------- mount ---------- */
+const TABS=[['resp','呼吸','<path d="M12 3v8"/><path d="M12 11c-2 0-4-3-6-3s-3 3-3 7 1 5 3 5 4-2 4-5v-3"/><path d="M12 11c2 0 4-3 6-3s3 3 3 7-1 5-3 5-4-2-4-5v-3"/>'],
+ ['circ','循環','<path d="M3 12h4l2-5 3 10 2-5h7"/>'],
+ ['nut','栄養','<path d="M7 3v8a3 3 0 0 0 6 0V3"/><path d="M10 3v18"/><path d="M17 3c-1.5 2-2 4-2 7h3v11"/>'],
+ ['drug','薬剤','<rect x="3" y="9" width="14" height="6" rx="1"/><path d="M17 12h4M7 9v6M11 9v6"/>'],
+ ['score','評価','<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>'],
+ ['lab','基準値','<path d="M9 3v6l-5 10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2L15 9V3"/><path d="M8 3h8M7 15h10"/>']];
+$('#panels').innerHTML=TABS.map(([k])=>`<div class="panel" data-panel="${k}" hidden>${P[k]}</div>`).join('');
+$('#tabbar').innerHTML=TABS.map(([k,t,svg])=>`<button type="button" data-tab="${k}" aria-label="${t}"><svg viewBox="0 0 24 24" aria-hidden="true">${svg}</svg>${t}</button>`).join('');
+
+function store(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+function load(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function showTab(k){$$('.panel').forEach(p=>p.hidden=p.dataset.panel!==k);$$('[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===k));store('kc-tab',k)}
+function showSub(k){$$('[data-subp]').forEach(p=>p.hidden=p.dataset.subp!==k);$$('[data-sub]').forEach(b=>b.classList.toggle('on',b.dataset.sub===k));store('kc-sub',k)}
+$('#tabbar').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b){showTab(b.dataset.tab);window.scrollTo(0,0)}});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-sub]');if(b)showSub(b.dataset.sub)});
+
+/* ---------- state sync ---------- */
+function setEl(el,v){if(el.type==='checkbox')el.checked=!!+v;else if(el.value!==String(v??''))el.value=v??''}
+function setVal(k,v,src){S[k]=v;$$(`[data-k="${k}"]`).forEach(el=>{if(el!==src)setEl(el,v)})}
+function onEdit(e){const el=e.target,k=el.dataset&&el.dataset.k;if(!k)return;
+  const v=el.type==='checkbox'?(el.checked?1:0):el.value;setVal(k,v,el);
+  if(k==='drug'){const d=findDrug(v);if(d){setVal('dmg',String(d.mg));setVal('dml',String(d.ml))}}
+  if((k==='dmg'||k==='dml')&&S.drug){const d=findDrug(S.drug);if(!d||g('dmg')!==+d.mg||g('dml')!==+d.ml)setVal('drug','')}
+  compute()}
+document.addEventListener('input',onEdit);document.addEventListener('change',onEdit);
+document.addEventListener('click',e=>{const b=e.target.closest('[data-set]');if(!b)return;setVal(b.dataset.set,b.dataset.v);compute()});
+
+/* ---------- compute ---------- */
+function fmt(v,d){if(!ok(v))return '—';return Number(v).toFixed(d??1)}
+function acidBase(){
+  const ph=g('ph'),c=g('paco2'),h=g('hco3');if(!ok(ph,c,h))return '';
+  let t,lines=[],cls='ok';
+  const mA=h<22,mK=h>26,rA=c>45,rK=c<35;
+  const comp=e=>lines.push(c>e+2?'→ 実測が高い：呼吸性アシドーシスの合併':c<e-2?'→ 実測が低い：呼吸性アルカローシスの合併':'→ 適切に呼吸性代償されています');
+  if(ph<7.35){cls='bad';
+    if(mA&&rA){t='混合性アシドーシス（代謝性＋呼吸性）';lines.push('HCO₃⁻の低下とPaCO₂の上昇が同時にあります')}
+    else if(mA){t='代謝性アシドーシス';const e=1.5*h+8;lines.push(`予測PaCO₂（Winterの式 1.5×HCO₃⁻＋8±2）＝ ${(e-2).toFixed(0)}〜${(e+2).toFixed(0)} mmHg`);comp(e)}
+    else if(rA){t='呼吸性アシドーシス';const d=c-40;lines.push(`予測HCO₃⁻：急性 ${(24+0.1*d).toFixed(1)}／慢性 ${(24+0.35*d).toFixed(1)} mEq/L`)}
+    else t='アシデミア（主病態は判定困難）'}
+  else if(ph>7.45){cls='warn';
+    if(mK&&rK){t='混合性アルカローシス（代謝性＋呼吸性）';lines.push('HCO₃⁻の上昇とPaCO₂の低下が同時にあります')}
+    else if(mK){t='代謝性アルカローシス';const e=0.7*h+21;lines.push(`予測PaCO₂（0.7×HCO₃⁻＋21±2）＝ ${(e-2).toFixed(0)}〜${(e+2).toFixed(0)} mmHg`);comp(e)}
+    else if(rK){t='呼吸性アルカローシス';const d=40-c;lines.push(`予測HCO₃⁻：急性 ${(24-0.2*d).toFixed(1)}／慢性 ${(24-0.5*d).toFixed(1)} mEq/L`)}
+    else t='アルカレミア（主病態は判定困難）'}
+  else{t='pHは基準範囲内';if(c>45&&h>26)lines.push('PaCO₂・HCO₃⁻ともに高値：代償された呼吸性アシドーシス／代謝性アルカローシスの可能性');else if(c<35&&h<22)lines.push('PaCO₂・HCO₃⁻ともに低値：代償された呼吸性アルカローシス／代謝性アシドーシスの可能性');else lines.push('PaCO₂・HCO₃⁻の明らかな異常はありません')}
+  const ag=ok(g('na'),g('cl'))?g('na')-g('cl')-h:null;
+  if(ok(ag)&&ag>14&&ok(g('na'))){lines.push(`AG開大あり。補正HCO₃⁻（HCO₃⁻＋ΔAG）＝ ${(h+ag-12).toFixed(1)}`+(h+ag-12>26?' → 代謝性アルカローシスの合併の可能性':h+ag-12<22?' → AG正常型代謝性アシドーシスの合併の可能性':''))}
+  return `<div class="interp"><div class="t"><span class="pill p-${cls}" style="margin-right:6px">${ph<7.35?'アシデミア':ph>7.45?'アルカレミア':'pH正常'}</span>${t}${/pH|判定困難/.test(t)?'':'のパターン'}<span class="plus">＋α</span></div>${lines.map(l=>`<div>${l}</div>`).join('')}
+   <div class="lbl" style="margin:4px 0 0">基準値（pH 7.35〜7.45・PaCO₂ 35〜45・HCO₃⁻ 22〜26）と、教科書に載っている代償の予測式に当てはめた結果です。診断は使用者が行ってください。式の出典は「基準値」タブの最後にあります。</div></div>`;
+}
+function compute(){
+  // patient strip + sex segments
+  $$('[data-set]').forEach(b=>{const v=S[b.dataset.set];b.classList.toggle('on',v!==undefined&&String(v)!==''&&+v===+b.dataset.v||String(v)===b.dataset.v)});
+  const bsa=D.bsa(),bmi=D.bmi(),ibw=D.ibw(),pbw=D.pbw();
+  $('#ptDerived').innerHTML=`<span>BSA<b>${fmt(bsa,2)}</b> m²</span><span>BMI<b>${fmt(bmi,1)}</b></span><span>標準体重<b>${fmt(ibw,1)}</b> kg</span><span>予測体重<b>${fmt(pbw,1)}</b> kg</span>`;
+  for(const r of RES){const el=document.getElementById(r.id);if(!el)continue;let v=null;try{v=r.calc()}catch(e){v=null}
+    const b=el.querySelector('b'),pill=el.querySelector('.pill'),rn=el.querySelector('.rn');
+    const has=ok(v);b.textContent=has?fmt(v,r.dec):'—';el.className='r'+(has?'':' nil');pill.textContent='';pill.className='pill';
+    if(has&&r.judge){const j=r.judge(v);if(j){el.classList.add(j[0]);pill.textContent=j[1];pill.classList.add('p-'+j[0])}}
+    rn.textContent=r.note?(r.note(has?v:null)||''):''}
+  $('#abInterp').innerHTML=acidBase();
+  // rate table
+  const m=g('dmg'),vol=g('dml'),w=g('wt');
+  $('#rateTbl').innerHTML=ok(m,vol,w)&&vol>0&&w>0?`<tr><th>流量 mL/時</th>${[1,2,3,4,5,6,8,10].map(x=>`<td class="num">${x}</td>`).join('')}</tr><tr><th>γ</th>${[1,2,3,4,5,6,8,10].map(x=>`<td class="num">${fmt(m/vol*x/w/60*1000,3)}</td>`).join('')}</tr>`:'';
+  apache();
+  const dsel=findDrug(S.drug);$('#drugMemo').textContent=dsel&&dsel.memo?'調製メモ：'+dsel.memo:'';
+  // labs
+  $$('.lab').forEach((row,i)=>{const L=LABROWS[i];row.hidden=!!(L.sx&&L.sx!==sex())||!labMatch(row);const v=g(L.k);row.classList.remove('hi','lo','ok');
+    if(ok(v))row.classList.add(L.lo!==null&&v<L.lo?'lo':L.hi!==null&&v>L.hi?'hi':'ok')});
+  $$('.lab-g').forEach(h=>{h.hidden=!$$(`.lab[data-g="${h.dataset.g}"]`).some(r=>!r.hidden)});
+  const any=Object.keys(S).some(k=>!['sex','af','sf','wfac','drug','chronic'].includes(k)&&String(S[k]??'')!=='');
+  if(!any)$('#exTag').dataset.on='0';
+}
+function labMatch(row){const q=($('#labQ').value||'').trim().toLowerCase();if(!q)return true;return (row.dataset.n+row.dataset.g).toLowerCase().includes(q)}
+$('#labQ').addEventListener('input',e=>{e.stopPropagation();compute()});
+
+function apache(){
+  const f=D.fio2(),useA=ok(f)&&f>=0.5,aa=D.aado2(),ph=g('ph');
+  const crP=band(g('cr'),AP.cr),gcs=D.gcs();
+  const rows=[
+    ['体温',g('temp'),'℃',band(g('temp'),AP.temp)],
+    ['平均血圧',D.map(),'mmHg',band(D.map(),AP.map)],
+    ['心拍数',g('hr'),'回/分',band(g('hr'),AP.hr)],
+    ['呼吸数',g('resp'),'回/分',band(g('resp'),AP.resp)],
+    useA?['A-aDO₂（FiO₂≥50%）',aa,'mmHg',band(aa,AP.aado2)]:['PaO₂（FiO₂<50%）',g('pao2'),'mmHg',band(g('pao2'),AP.pao2)],
+    ok(ph)?['動脈血pH',ph,'',band(ph,AP.ph)]:['HCO₃⁻（pHなし）',g('hco3'),'mEq/L',band(g('hco3'),AP.hco3)],
+    ['Na',g('na'),'mEq/L',band(g('na'),AP.na)],
+    ['K',g('k'),'mEq/L',band(g('k'),AP.k)],
+    ['Cr'+(+S.arf?'（×2）':''),g('cr'),'mg/dL',crP===null?null:crP*(+S.arf?2:1)],
+    ['Ht',g('hct'),'%',band(g('hct'),AP.ht)],
+    ['白血球',g('wbc'),'×10³/μL',band(g('wbc'),AP.wbc)],
+    ['15 − GCS',gcs,'GCS',ok(gcs)?15-gcs:null]];
+  const aps=rows.reduce((s,r)=>s+(r[3]||0),0),ageP=band(g('age'),AP.age)||0,chr=+(S.chronic||0);
+  const dec=v=>!ok(v)?'—':String(+(+v).toFixed(2));
+  const cls=p=>p>=3?'p3':p>=1?'p1':'';
+  $('#apTbl').innerHTML=`<tr><th>項目</th><th style="text-align:right">値</th><th style="text-align:right">点</th></tr>`+
+    rows.map(r=>`<tr><td>${r[0]}</td><td class="num">${dec(r[1])} <small style="color:var(--muted)">${r[2]}</small></td><td class="num"><span class="pts ${cls(r[3]||0)}">${r[3]===null?'—':r[3]}</span></td></tr>`).join('')+
+    `<tr><td><b>急性生理スコア（A）</b></td><td></td><td class="num"><b>${aps}</b></td></tr><tr><td>年齢点（B）</td><td class="num">${dec(g('age'))} <small style="color:var(--muted)">歳</small></td><td class="num"><span class="pts ${cls(ageP)}">${ageP}</span></td></tr><tr><td>慢性疾患（C）</td><td></td><td class="num"><span class="pts ${cls(chr)}">${chr}</span></td></tr>`;
+  $('#apTotal').textContent=aps+ageP+chr;
+  const miss=rows.filter(r=>r[3]===null).length;
+  $('#apSub').textContent=`A ${aps} ＋ B ${ageP} ＋ C ${chr}`+(miss?`（未入力 ${miss}項目は0点）`:'');
+}
+
+/* ---------- example / clear ---------- */
+const DEFAULTS={sex:'m',af:'1.2',sf:'1.2',wfac:'33',drug:'',chronic:'0'};
+const EXAMPLE={age:'70',ht:'168',wt:'65',ph:'7.31',pao2:'82',paco2:'30',hco3:'15',be:'-10',sao2:'96',fio2:'40',na:'138',cl:'104',alb:'3.0',hb:'10.2',
+ tv:'420',rr:'16',pip:'26',pplat:'20',peep:'6',ti:'1.0',sbp:'92',dbp:'52',hr:'112',co:'4.6',svo2:'64',pvo2:'35',cvp:'9',mpap:'24',pawp:'13',
+ temp:'38.2',dmg:'4',dml:'20',rate:'3',tgamma:'0.1',gcsE:'3',gcsV:'4',gcsM:'6',resp:'24',k:'4.1',cr:'1.3',hct:'31',wbc:'14.2',b2:'20',b3:'5'};
+function apply(obj){Object.keys(S).forEach(k=>delete S[k]);$$('[data-k]').forEach(el=>setEl(el,''));
+  Object.entries(Object.assign({},DEFAULTS,obj)).forEach(([k,v])=>setVal(k,v));compute()}
+$('#btnClear').addEventListener('click',()=>{apply({});$('#exTag').dataset.on='0'});
+$('#btnAbout').addEventListener('click',()=>{showTab('lab');$('#about').scrollIntoView({block:'start'})});
+$('#btnExample').addEventListener('click',()=>{apply(EXAMPLE);$('#exTag').dataset.on='1'});
+
+/* ---------- text import (iOS Live Text) ---------- */
+/* Each entry: key in S, label, app unit, aliases, plausible range after conversion, options.
+   Aliases of 3 characters or fewer are case-sensitive; longer ones are not.
+   strict: drop silently when no number or out of range (single-letter / ambiguous aliases). */
+const IMP_ITEMS=[
+ {k:'ph',l:'pH',u:'',a:['pH','PH','pH(T)','動脈血pH'],r:[6.5,8]},
+ {k:'pao2',l:'PaO₂',u:'mmHg',a:['PaO2','PO2','pO2','pO2(T)','PaO2(T)','動脈血酸素分圧','酸素分圧'],r:[15,700],c:'kpa'},
+ {k:'paco2',l:'PaCO₂',u:'mmHg',a:['PaCO2','PCO2','pCO2','pCO2(T)','PaCO2(T)','動脈血二酸化炭素分圧','二酸化炭素分圧','炭酸ガス分圧'],r:[5,200],c:'kpa'},
+ {k:'hco3',l:'HCO₃⁻',u:'mEq/L',a:['HCO3-','HCO3','cHCO3','cHCO3-','HCO3act','HCO3(P)','重炭酸イオン','重炭酸','Bicarbonate'],r:[1,70]},
+ {k:'be',l:'BE',u:'mEq/L',a:['BE','ABE','SBE','BE(B)','BEb','BEecf','BE(ecf)','cBase','cBase(B)','ベースエクセス','塩基過剰'],r:[-40,40]},
+ {k:'sao2',l:'SaO₂',u:'%',a:['SaO2','sO2','SO2','O2Sat','O2SAT','動脈血酸素飽和度','酸素飽和度'],r:[20,100],c:'frac'},
+ {k:'svo2',l:'SvO₂',u:'%',a:['SvO2','混合静脈血酸素飽和度',{t:'ScvO2',w:'ScvO₂をSvO₂の欄に入れます'}],r:[5,100],c:'frac'},
+ {k:'pvo2',l:'PvO₂',u:'mmHg',a:['PvO2','混合静脈血酸素分圧'],r:[5,100],c:'kpa'},
+ {k:'fio2',l:'FiO₂',u:'%',a:['FiO2','FIO2','F1O2','吸入酸素濃度','酸素濃度'],r:[21,100],c:'frac'},
+ {k:'hb',l:'Hb',u:'g/dL',a:['Hb','HB','Hgb','HGB','tHb','ctHb','ヘモグロビン量','ヘモグロビン','血色素量','血色素'],r:[1,25],c:'hb'},
+ {k:'hct',l:'Ht',u:'%',a:['Ht','HT','Hct','HCT','PCV','ヘマトクリット値','ヘマトクリット'],r:[5,80],c:'hct'},
+ {k:'wbc',l:'白血球',u:'×10³/μL',a:['WBC','白血球数','白血球','Leukocyte','Leukocytes'],r:[0.05,500],c:'wbc'},
+ {k:'rbc',l:'赤血球',u:'万/μL',a:['RBC','赤血球数','赤血球','Erythrocyte'],r:[50,900],c:'rbc'},
+ {k:'plt',l:'血小板',u:'万/μL',a:['PLT','Plt','血小板数','血小板','Platelet','Platelets'],r:[0.1,200],c:'plt'},
+ {k:'aptt',l:'APTT',u:'秒',a:['APTT','aPTT','活性化部分トロンボプラスチン時間'],r:[10,250]},
+ {k:'_pt',l:'PT',u:'',a:['PT','プロトロンビン時間'],r:[0,300]},
+ {k:'ptp',l:'PT活性',u:'%',a:['PT%','PT(%)','PT活性','PT活性値','プロトロンビン活性'],r:[3,200]},
+ {k:'inr',l:'PT-INR',u:'',a:['PT-INR','PTINR','INR','PT(INR)','PT INR'],r:[0.5,15]},
+ {k:'fib',l:'フィブリノゲン',u:'mg/dL',a:['Fib','FIB','Fbg','フィブリノゲン','フィブリノーゲン','Fibrinogen'],r:[10,1500]},
+ {k:'fdp',l:'FDP',u:'μg/mL',a:['FDP','血清FDP'],r:[0,2000]},
+ {k:'dd',l:'Dダイマー',u:'μg/mL',a:['D-dimer','D-Dimer','D-DIMER','Dダイマー','D-ダイマー','DD','D-D','Ddimer'],r:[0,500]},
+ {k:'crp',l:'CRP',u:'mg/dL',a:['CRP','C反応性蛋白','C反応性タンパク','C-反応性蛋白'],r:[0,60],c:'crp'},
+ {k:'ast',l:'AST',u:'IU/L',a:['AST','GOT','AST(GOT)','GOT(AST)','AST/GOT'],r:[1,30000]},
+ {k:'alt',l:'ALT',u:'IU/L',a:['ALT','GPT','ALT(GPT)','GPT(ALT)','ALT/GPT'],r:[1,30000]},
+ {k:'ldh',l:'LDH',u:'U/L',a:['LDH','LD','乳酸脱水素酵素'],r:[10,30000]},
+ {k:'alp',l:'ALP',u:'U/L',a:['ALP','アルカリホスファターゼ'],r:[5,10000]},
+ {k:'ggt',l:'γ-GTP',u:'U/L',a:['γ-GTP','γGTP','γ-GT','γGT','GGT','GGTP','r-GTP','y-GTP','Y-GTP','rGTP','yGTP','ガンマGTP'],r:[1,5000]},
+ {k:'tbil',l:'T-Bil',u:'mg/dL',a:['T-Bil','T-BIL','T-bil','TBil','T.Bil','T.BIL','TBIL','総ビリルビン','TB'],r:[0,60],c:'tbil'},
+ {k:'amy',l:'アミラーゼ',u:'IU/L',a:['AMY','Amy','S-AMY','血清アミラーゼ','アミラーゼ'],r:[1,20000]},
+ {k:'nh3',l:'アンモニア',u:'μg/dL',a:['NH3','アンモニア'],r:[1,1000]},
+ {k:'tp',l:'TP',u:'g/dL',a:['TP','総蛋白','総タンパク','総たんぱく'],r:[1.5,12],c:'tp'},
+ {k:'alb',l:'Alb',u:'g/dL',a:['Alb','ALB','アルブミン'],r:[0.5,6.5],c:'alb'},
+ {k:'ttt',l:'TTT',u:'単位',a:['TTT'],r:[0,50]},
+ {k:'ztt',l:'ZTT',u:'単位',a:['ZTT'],r:[0,80]},
+ {k:'tc',l:'総コレステロール',u:'mg/dL',a:['T-Cho','T-CHO','T-cho','TCHO','TC','総コレステロール'],r:[30,1000]},
+ {k:'hdl',l:'HDLコレステロール',u:'mg/dL',a:['HDL','HDL-C','HDL-Cho','HDL-CHO','HDLコレステロール'],r:[5,200]},
+ {k:'tg',l:'中性脂肪',u:'mg/dL',a:['TG','中性脂肪','トリグリセリド','トリグリセライド'],r:[10,5000]},
+ {k:'glu',l:'血糖',u:'mg/dL',a:['Glu','GLU','BS','PG','血糖値','血糖','グルコース','Glucose','随時血糖','空腹時血糖'],r:[5,2000],c:'glu'},
+ {k:'bun',l:'BUN',u:'mg/dL',a:['BUN','UN','尿素窒素','血中尿素窒素'],r:[1,300],c:'bun'},
+ {k:'cr',l:'Cr',u:'mg/dL',a:['Cr','CRE','Cre','CRN','CREA','Crea','sCr','S-Cr','クレアチニン'],r:[0.05,30],c:'cr'},
+ {k:'ua',l:'尿酸',u:'mg/dL',a:['UA','尿酸'],r:[0.1,30]},
+ {k:'cpk',l:'CPK',u:'U/L',a:['CK','CPK','クレアチンキナーゼ','クレアチンホスホキナーゼ'],r:[1,200000]},
+ {k:'na',l:'Na',u:'mEq/L',a:['Na','Na+','ナトリウム'],r:[90,200]},
+ {k:'k',l:'K',u:'mEq/L',a:['K','K+','カリウム'],r:[1,12],strict:1},
+ {k:'cl',l:'Cl',u:'mEq/L',a:['Cl','CL','Cl-','クロール','クロライド','塩素'],r:[50,160]},
+ {k:'ca',l:'Ca',u:'mg/dL',a:['Ca','カルシウム'],r:[2,20],c:'ca'},
+ {k:'_p',l:'P',u:'',a:['P'],r:[0.3,250],strict:1},
+ {k:'ip',l:'P（無機リン）',u:'mg/dL',a:['IP','Pi','無機リン','血清リン','リン(P)'],r:[0.3,20]},
+ {k:'co',l:'心拍出量',u:'L/分',a:['CO','C.O.','心拍出量'],r:[0.5,20],strict:1},
+ {k:'cvp',l:'CVP',u:'mmHg',a:['CVP','RAP','中心静脈圧','右房圧'],r:[-5,40]},
+ {k:'mpap',l:'平均肺動脈圧',u:'mmHg',a:['mPAP','MPAP','PAm','PAPm','PAP(m)','PA mean','平均肺動脈圧'],r:[3,100]},
+ {k:'pasp',l:'肺動脈収縮期圧',u:'mmHg',a:['PASP','PAs','肺動脈収縮期圧'],r:[5,150]},
+ {k:'padp',l:'肺動脈拡張期圧',u:'mmHg',a:['PADP','PAd','肺動脈拡張期圧'],r:[0,80]},
+ {k:'_pap',l:'肺動脈圧',u:'',a:['PAP','PA圧','肺動脈圧'],r:[0,150]},
+ {k:'pawp',l:'肺動脈楔入圧',u:'mmHg',a:['PAWP','PCWP','PAOP','ウェッジ圧','肺動脈楔入圧','楔入圧','Wedge'],r:[0,60]},
+ {k:'rvsp',l:'右室収縮期圧',u:'mmHg',a:['RVSP','右室収縮期圧'],r:[5,150]},
+ {k:'rvdp',l:'右室拡張期圧',u:'mmHg',a:['RVDP','右室拡張期圧'],r:[0,50]},
+ {k:'_bp',l:'血圧',u:'',a:['BP','血圧','NIBP','NBP','ABP','ART','Art','動脈圧','観血的動脈圧'],r:[0,300]},
+ {k:'sbp',l:'収縮期血圧',u:'mmHg',a:['SBP','sBP','収縮期血圧','収縮期'],r:[30,300]},
+ {k:'dbp',l:'拡張期血圧',u:'mmHg',a:['DBP','dBP','拡張期血圧','拡張期'],r:[10,200]},
+ {k:'hr',l:'心拍数',u:'回/分',a:['HR','PR','心拍数','脈拍数','脈拍','Pulse','PULSE'],r:[20,260]},
+ {k:'resp',l:'呼吸数（実測）',u:'回/分',a:['RR','呼吸数','呼吸回数','Resp','RESP',{t:'R',strict:1}],r:[3,80]},
+ {k:'temp',l:'体温',u:'℃',a:['BT','KT','体温','Temp','TEMP',{t:'T',strict:1}],r:[28,44],c:'temp'},
+ {k:'age',l:'年齢',u:'歳',a:['年齢','Age','AGE'],r:[0,120]},
+ {k:'ht',l:'身長',u:'cm',a:['身長','Height','HEIGHT'],r:[40,250],c:'height'},
+ {k:'wt',l:'体重',u:'kg',a:['体重','BW','Weight','WEIGHT','Wt','WT'],r:[0.5,300]},
+ {k:'_sex',l:'性別',u:'',a:['性別','Sex','SEX','男性','女性'],r:[0,0]},
+ {k:'tv',l:'1回換気量',u:'mL',a:['VT','Vt','TV','VTe','VTE','Vte','VTi','VTI','Vti','1回換気量','一回換気量','換気量'],r:[30,2500],c:'tv'},
+ {k:'rr',l:'設定呼吸回数',u:'回/分',a:['ftotal','fTOTAL','fTot','f total','設定呼吸回数','設定回数','換気回数',{t:'f',strict:1}],r:[2,80]},
+ {k:'pip',l:'PIP',u:'cmH₂O',a:['PIP','Ppeak','PPEAK','Ppk','PEAK','Peak','Pmax','PMAX','最高気道内圧','ピーク圧'],r:[3,90]},
+ {k:'pplat',l:'プラトー圧',u:'cmH₂O',a:['Pplat','PPLAT','Pplateau','Plat','EIP','プラトー圧'],r:[3,80]},
+ {k:'peep',l:'PEEP',u:'cmH₂O',a:['PEEP','PEEPe','PEEPtot','呼気終末陽圧'],r:[0,30]},
+ {k:'ti',l:'吸気時間',u:'秒',a:['Ti','TI','Tinsp','TINSP','I-time','吸気時間'],r:[0.1,5]}
+];
+/* recognised but no matching field: consumed so their numbers are not mis-assigned */
+const IMP_IGNORE=['SpO2','MAP','平均血圧','Lac','LAC','乳酸','Lactate','iCa','Ca++','Ca2+','イオン化カルシウム','tCO2','TCO2','AG','アニオンギャップ','MCV','MCH','MCHC','RDW','eGFR','HbA1c','A1c','EtCO2','etCO2','ETCO2','JCS','P/F','CI','SV','SVR','SVV','Mg','マグネシウム','BNP','NT-proBNP','TnT','TnI','トロポニン','PCT','プロカルシトニン','Fe','フェリチン','ChE','CHE','LAP','D-Bil','D-BIL','直接ビリルビン','I-Bil','LDL','LDL-C','LDL-Cho','COHb','MetHb','O2Hb','FO2Hb','Osm','浸透圧','CK-MB','CKMB','R-index','CCr','CrCl','Ret','網赤血球','Mono','Lymph','Neut','好中球','リンパ球','単球','好酸球','好塩基球','Baso','Eos','MPV','PDW','Pmean','MV','MVe','Cdyn','Cst','Raw','I:E','O2流量','流量','Rate','mL/h','分時換気量','インスリン','ヘパリン','HbA1c(NGSP)','GCS合計'];
+const IMP_ENTRIES=(()=>{const out=[];
+  for(const it of IMP_ITEMS)for(const a of it.a){const o=typeof a==='string'?{t:a}:a;out.push({t:o.t.normalize('NFKC'),it,w:o.w||'',strict:!!(o.strict||it.strict)})}
+  for(const t of IMP_IGNORE)out.push({t:t.normalize('NFKC'),it:null});
+  for(const e of out){e.cs=e.t.length<=3;e.lt=e.cs?e.t:e.t.toLowerCase()}
+  return out.sort((x,y)=>y.t.length-x.t.length)})();
+const isAN=c=>!!c&&/[A-Za-z0-9]/.test(c);
+function impUnit(s){
+  s=s.replace(/^[\s:：=]*/,'').replace(/^(?:[HL]|↑|↓|\*|＊)(?=\s|$)\s*/,'');const m=(re)=>re.test(s);
+  if(m(/^[x×*]\s*10\s*\^?\s*([0-9])\s*\/\s*[μu]l/i)){const e=s.match(/^[x×*]\s*10\s*\^?\s*([0-9])/)[1];return 'e'+e+'ul'}
+  if(m(/^[x×*]\s*10\s*\^?\s*(9|12)\s*\/\s*l/i)){return /^[x×*]\s*10\s*\^?\s*12/.test(s)?'e12l':'e9l'}
+  if(m(/^万\s*\/\s*[μu]l/i))return 'e4ul';
+  if(m(/^千\s*\/\s*[μu]l/i))return 'e3ul';
+  if(m(/^百\s*\/\s*[μu]l/i))return 'e2ul';
+  if(m(/^(個\s*)?\/\s*[μu]l/i)||m(/^\/\s*mm3/i))return 'ul';
+  if(m(/^mg\s*\/\s*dl/i))return 'mgdl';
+  if(m(/^g\s*\/\s*dl/i))return 'gdl';
+  if(m(/^g\s*\/\s*l/i))return 'gl';
+  if(m(/^mg\s*\/\s*l/i))return 'mgl';
+  if(m(/^[μu]mol\s*\/\s*l/i))return 'umol';
+  if(m(/^mmol\s*\/\s*l/i))return 'mmol';
+  if(m(/^m(eq|Eq|EQ)\s*\/\s*l/i))return 'meq';
+  if(m(/^kpa/i))return 'kpa';
+  if(m(/^mmhg|^torr/i))return 'mmhg';
+  if(m(/^cmh2o|^hpa/i))return 'cmh2o';
+  if(m(/^%/))return 'pct';
+  if(m(/^(秒|sec\b|s\b)/i))return 'sec';
+  if(m(/^ms\b/i))return 'ms';
+  if(m(/^°?\s*c\b|^度/i)&&!m(/^c[a-z]/i))return 'c';
+  if(m(/^°\s*f\b/i))return 'f';
+  if(m(/^kg\b/i))return 'kg';
+  if(m(/^cm(?!h)/i))return 'cm';
+  if(m(/^m\b(?![lg])/i))return 'm';
+  if(m(/^ml\b/i))return 'ml';
+  if(m(/^l\s*\/\s*(min|分)/i))return 'lmin';
+  if(m(/^l\b/i))return 'l';
+  if(m(/^(歳|才)/))return 'yr';
+  if(m(/^(bpm|回\s*\/\s*分|\/\s*min)/i))return 'permin';
+  return '';
+}
+/* unit conversion into the app's unit; returns [value, note, warn?] */
+function impConv(k,v,u){
+  const R=(x,n)=>[x,n,true],W=(x,n)=>[x,n,true];
+  switch(k){
+    case 'pao2':case 'paco2':case 'pvo2':return u==='kpa'?R(v*7.50062,'kPa→mmHg に換算'):[v,''];
+    case 'sao2':case 'svo2':case 'fio2':return v>0&&v<=1?R(v*100,'小数→% に換算'):[v,''];
+    case 'hct':return v>0&&v<=1?R(v*100,'小数→% に換算'):[v,''];
+    case 'hb':return u==='gl'||v>30?R(v/10,'g/L→g/dL に換算'):u==='mmol'?R(v*1.611,'mmol/L→g/dL に換算'):[v,''];
+    case 'wbc':
+      if(u==='e3ul'||u==='e9l')return [v,''];
+      if(u==='e2ul')return R(v/10,'×10²/μL→×10³/μL に換算');
+      if(u==='e4ul')return R(v*10,'×10⁴/μL→×10³/μL に換算');
+      if(u==='ul'||v>=200)return R(v/1000,'/μL→×10³/μL に換算');
+      if(v>=50)return W(v,'単位が読めません。×10³/μL として入れます');
+      return [v,''];
+    case 'rbc':
+      if(u==='e4ul')return [v,''];
+      if(u==='e6ul'||u==='e12l'||(!u&&v<15))return R(v*100,'×10⁶/μL→万/μL に換算');
+      if(u==='e2ul')return R(v/100,'×10²/μL→万/μL に換算');
+      if(u==='ul'||v>=1e5)return R(v/1e4,'/μL→万/μL に換算');
+      return [v,''];
+    case 'plt':
+      if(u==='e4ul')return [v,''];
+      if(u==='e3ul'||u==='e9l')return R(v/10,'×10³/μL→万/μL に換算');
+      if(u==='ul'||v>=2000)return R(v/1e4,'/μL→万/μL に換算');
+      if(!u&&v>=100)return W(v/10,'単位が読めません。×10³/μL とみなして万/μL に換算');
+      return [v,''];
+    case 'cr':return u==='umol'||v>30?R(v/88.4,'μmol/L→mg/dL に換算'):[v,''];
+    case 'glu':return u==='mmol'?R(v*18,'mmol/L→mg/dL に換算'):[v,''];
+    case 'bun':return u==='mmol'?R(v*2.8,'mmol/L→mg/dL に換算'):[v,''];
+    case 'ca':return u==='mmol'?R(v*4.008,'mmol/L→mg/dL に換算'):[v,''];
+    case 'tbil':return u==='umol'?R(v/17.1,'μmol/L→mg/dL に換算'):[v,''];
+    case 'crp':return u==='mgl'?R(v/10,'mg/L→mg/dL に換算'):[v,''];
+    case 'alb':return u==='gl'||v>10?R(v/10,'g/L→g/dL に換算'):[v,''];
+    case 'tp':return u==='gl'||v>20?R(v/10,'g/L→g/dL に換算'):[v,''];
+    case 'temp':return u==='f'||v>50?R((v-32)/1.8,'°F→℃ に換算'):[v,''];
+    case 'height':case 'ht':return u==='m'||v<3?R(v*100,'m→cm に換算'):[v,''];
+    case 'tv':return u==='l'||v<3?R(v*1000,'L→mL に換算'):[v,''];
+    case 'ti':return u==='ms'?R(v/1000,'ms→秒 に換算'):[v,''];
+  }
+  return [v,''];
+}
+/* numbers in a window, skipping a leading reference range like 135-147 */
+function impNums(win){
+  const re=/(\d{1,3}(?:,\d{3})+(?!\d)|\d+(?:\.\d+)?|\.\d+)/g;let m,arr=[];
+  while((m=re.exec(win))){let v=parseFloat(m[1].replace(/,/g,''));const i=m.index;
+    const pre=win.slice(0,i);if(/-$/.test(pre)&&(/[\s:：=(（]-$/.test(pre))&&!/\d\s*-$/.test(pre))v=-v;
+    arr.push({v,i,end:re.lastIndex})}
+  return arr;
+}
+function impFirst(win){
+  const a=impNums(win);if(!a.length)return null;
+  const isRange=(x,y)=>!!y&&/^\s*[-~〜～]\s*$/.test(win.slice(x.end,y.i));
+  let j=0;
+  // a reference range before any result (e.g. "(135-147)") is not the value
+  if(isRange(a[0],a[1])&&(/[(（\[]\s*$/.test(win.slice(0,a[0].i))||a.length>2))j=2;
+  const n=a[j];if(!n)return null;
+  return {v:n.v,unit:impUnit(win.slice(n.end)),end:n.end,start:n.i};
+}
+function impParse(text){
+  const found=[],other=[],queue=[];
+  const add=(it,v,u,src,extra)=>{
+    let key=it.k,note=extra&&extra.w||'',warn=!!note;
+    if(key==='_pt'){key=u==='pct'||v>=40?'ptp':u==='sec'?'pt':v<=6?'inr':'pt'}
+    if(key==='_p'){if(v<=20)key='ip';else if(v>=25&&v<=250){key='hr';note='「P」を脈拍として読み取りました';warn=true}else return false}
+    const def=IMP_ITEMS.find(x=>x.k===key)||{k:key,l:key==='pt'?'PT':key,u:key==='pt'?'秒':'',r:[0,1e9]};
+    const lab=LABROWS.find(x=>x.k===key);
+    const label=key==='pt'?'PT（秒）':key==='ip'?'P（無機リン）':def.l;const unitApp=key==='pt'?'秒':key==='ip'?'mg/dL':def.u||(lab?'':'');
+    const [cv,cn,cw]=impConv(def.c==="height"?"height":key,v,u);
+    if(cn){note=note?note+'／'+cn:cn;warn=warn||cw}
+    const r=(IMP_ITEMS.find(x=>x.k===key)||{r:[-1e9,1e9]}).r;
+    const outR=cv<r[0]||cv>r[1];
+    if(outR&&extra&&extra.strict)return false;
+    found.push({key,label,unit:unitApp,v:cn?+(+cv).toFixed(Math.abs(cv)>=100?0:Math.abs(cv)>=10?1:2):cv,src:src.trim(),note:outR?'ありえない値の可能性があります。確認してください':note,
+      st:outR?'bad':warn?'warn':'ok'});
+    return true;
+  };
+  const lines=text.normalize('NFKC').replace(/[‐‑‒–—―−]/g,'-').split(/\r?\n/);
+  for(let raw of lines){
+    let line=raw.replace(/\t/g,' ');if(!line.trim())continue;
+    // GCS like E3V4M6 / E3 VT M5
+    line=line.replace(/E\s*([1-4])\s*V\s*([1-5]|T|t)\s*M\s*([1-6])/g,(all,e,v,m)=>{
+      found.push({key:'gcsE',label:'GCS E',unit:'',v:e,src:all,note:'',st:'ok'});
+      found.push({key:'gcsV',label:'GCS V',unit:'',v:/t/i.test(v)?'T':v,src:all,note:/t/i.test(v)?'挿管中（T）':'',st:'ok'});
+      found.push({key:'gcsM',label:'GCS M',unit:'',v:m,src:all,note:'',st:'ok'});return ' '.repeat(all.length)});
+    const low=line.toLowerCase();
+    // alias matches
+    let ms=[];
+    for(const e of IMP_ENTRIES){const hay=e.cs?line:low;let from=0,i;
+      while((i=hay.indexOf(e.lt,from))!==-1){from=i+1;const end=i+e.t.length;
+        if(isAN(e.t[0])&&isAN(line[i-1]))continue;
+        if(isAN(e.t[e.t.length-1])&&isAN(line[end]))continue;
+        ms.push({i,end,e})}}
+    ms.sort((a,b)=>a.i-b.i||b.end-a.end);
+    const kept=[];let last=-1;for(const m of ms){if(m.i>=last){kept.push(m);last=m.end}}
+    const used=[];let anyVal=false;
+    kept.forEach((m,idx)=>{
+      const stop=idx+1<kept.length?kept[idx+1].i:line.length;const win=line.slice(m.end,stop);
+      if(!m.e.it){other.push(m.e.t);used.push([m.i,stop]);return}
+      const it=m.e.it;
+      if(it.k==='_bp'||it.k==='_pap'){
+        const bp=win.match(/(\d{1,3})\s*\/\s*(\d{1,3})(?:\s*[(（]\s*(\d{1,3})\s*[)）])?/);
+        if(bp){used.push([m.i,stop]);anyVal=true;const src=line.slice(m.i,stop);
+          const [a,b,c]=it.k==='_bp'?['sbp','dbp',null]:['pasp','padp','mpap'];
+          add(IMP_ITEMS.find(x=>x.k===a),+bp[1],'',src);add(IMP_ITEMS.find(x=>x.k===b),+bp[2],'',src);
+          if(bp[3]&&c)add(IMP_ITEMS.find(x=>x.k===c),+bp[3],'',src);
+          else if(bp[3]&&!c)other.push('平均血圧 '+bp[3]);}
+        else{const f=impFirst(win);if(f&&it.k==='_pap'){add(IMP_ITEMS.find(x=>x.k==='mpap'),f.v,f.unit,line.slice(m.i,m.end+f.end),{w:'数値が1つだけのため平均肺動脈圧として読み取りました'});used.push([m.i,m.end+f.end]);anyVal=true}}
+        return}
+      if(it.k==='_sex'){const t=m.e.t;let sx=t==='男性'?'m':t==='女性'?'f':null;
+        if(!sx){const w=win.trim();sx=/^(男|M\b|Male)/i.test(w)?'m':/^(女|F\b|Female)/i.test(w)?'f':null}
+        if(sx){const e2=m.end+(/^(男性|女性)$/.test(t)?0:(win.match(/^\s*(男性|女性|男|女|Male|Female|M|F)/i)||[''])[0].length);found.push({key:'sex',label:'性別',unit:'',v:sx,src:line.slice(m.i,e2),note:'',st:'ok'});used.push([m.i,e2])}
+        return}
+      const f=impFirst(win);
+      if(!f){if(!m.e.strict)queue.push({m,src:line.slice(m.i,m.end)});return}
+      const ok2=add(it,f.v,f.unit,line.slice(m.i,stop).trim().slice(0,40),{w:m.e.w,strict:m.e.strict});
+      if(ok2){used.push([m.i,m.end+f.end]);anyVal=true}
+    });
+    // remaining text: column-style values or unit-only hints
+    let rest=line.split('');for(const [a,b] of used)for(let i=a;i<b&&i<rest.length;i++)rest[i]=' ';rest=rest.join('');
+    if(!kept.length&&queue.length){const f=impFirst(rest);if(f){const q=queue.shift();
+        add(q.m.e.it,f.v,f.unit,q.src+' … '+rest.slice(f.start,f.end).trim(),{w:'項目名と数値が別の行にあったため、並び順から対応づけました',strict:q.m.e.strict});continue}}
+    const hint=[[/(\d{2}(?:\.\d+)?)\s*°\s*C/i,'temp'],[/(\d{1,3}(?:\.\d+)?)\s*kg\b/i,'wt'],[/(\d{2,3}(?:\.\d+)?)\s*cm(?!\s*h)/i,'ht'],[/(\d{1,3})\s*(?:歳|才)/,'age']];
+    for(const [re,k] of hint){const mm=rest.match(re);if(mm&&!found.some(x=>x.key===k)){const it=IMP_ITEMS.find(x=>x.k===k);add(it,+mm[1],'',mm[0],{w:'単位から「'+it.l+'」と判断しました',strict:1})}}
+  }
+  // duplicates: keep first, uncheck later ones
+  const seen={};for(const f of found){if(seen[f.key]!==undefined){f.dup=true;f.st='warn';f.note=(f.note?f.note+'／':'')+'同じ項目が複数あります（最初の値を優先）'}else seen[f.key]=1}
+  return {found,other:[...new Set(other)]};
+}
+let IMP_LAST=null;
+function impRender(){
+  const txt=$('#impText').value;const box=$('#impResult');
+  if(!txt.trim()){box.innerHTML='';IMP_LAST=null;return}
+  const r=impParse(txt);IMP_LAST=r;
+  if(!r.found.length){box.innerHTML=`<p class="imp-sum">入力できる項目が見つかりませんでした。</p><p class="imp-other">項目名と数値が読み取れているか確認してください。${r.other.length?'対応する入力欄がない項目：'+esc(r.other.join('、')):''}</p>`;return}
+  const cur=k=>{const v=S[k];return v===undefined||v===''?'':String(v)};
+  const disp=(k,v)=>k==='sex'?(v==='m'?'男':'女'):String(v);
+  const applyBar=`<div class="btn-row"><button class="btn pri" type="button" data-imp-apply="1">チェックした項目を入力</button></div><p class="lbl imp-msg" role="status" style="margin:0"></p>`;
+  box.innerHTML=`<p class="imp-sum">${r.found.length}項目が見つかりました${r.found.some(f=>f.st!=='ok')?'（色の付いた行は確認が必要です）':''}</p>${applyBar}
+   <table class="imp-tbl"><tr><th></th><th>項目と読み取った文字</th><th style="text-align:right">入力する値</th></tr>
+   ${r.found.map((f,i)=>`<tr class="${f.st}"><td><input type="checkbox" id="imp-c${i}" ${f.st==='bad'||f.dup?'':'checked'} aria-label="${esc(f.label)}を入力する"></td>
+     <td><b>${esc(f.label)}</b><small>「${esc(f.src)}」${cur(f.key)&&cur(f.key)!==String(f.v)?`　現在 ${esc(disp(f.key,cur(f.key)))}`:''}</small>${f.note?`<small class="nt">${esc(f.note)}</small>`:''}</td>
+     <td class="num">${/^(sex|gcs[EVM])$/.test(f.key)?`<b>${esc(disp(f.key,f.v))}</b>`:`<input class="iv" id="imp-v${i}" value="${esc(f.v)}" inputmode="decimal" aria-label="${esc(f.label)}の値">`}<small>${esc(f.unit)}</small></td></tr>`).join('')}</table>
+   ${r.other.length?`<p class="imp-other">対応する入力欄がないため入れない項目：${esc(r.other.join('、'))}</p>`:''}
+   ${applyBar}`;
+}
+let impTimer=null;
+$('#impText').addEventListener('input',e=>{e.stopPropagation();clearTimeout(impTimer);impTimer=setTimeout(impRender,250)});
+$('#impResult').addEventListener('click',e=>{if(!e.target.closest('[data-imp-apply]')||!IMP_LAST)return;
+  let n=0;const keys=[];
+  IMP_LAST.found.forEach((f,i)=>{const c=$('#imp-c'+i);if(!c||!c.checked)return;
+    const vi=$('#imp-v'+i);const v=vi?vi.value.trim():String(f.v);if(v==='')return;
+    setVal(f.key,v);keys.push(f.key);n++});
+  compute();
+  keys.forEach(k=>$$(`[data-k="${k}"]`).forEach(el=>{const w=el.closest('.fi')||el;w.classList.remove('hit');void w.offsetWidth;w.classList.add('hit')}));
+  $$('.imp-msg').forEach(p=>p.textContent=n?`${n}項目を入力しました。各タブで確認してください。`:'チェックされた項目がありません');
+  if(n)$('#exTag').dataset.on='0';
+});
+$('#impClear').addEventListener('click',()=>{$('#impText').value='';impRender();$('#impText').focus()});
+$('#impClose').addEventListener('click',()=>{$('#impPanel').hidden=true});
+$('#btnImp').addEventListener('click',()=>{const p=$('#impPanel');p.hidden=!p.hidden;if(!p.hidden)p.scrollIntoView({block:'start'})});
+$('#impSample').addEventListener('click',()=>{$('#impText').value=[
+ '検体検査結果報告書　（見本）','項目名 結果 単位 基準値',
+ 'WBC 12.5 H ×10^3/μL (3.3-8.6)','RBC 3.85 L ×10^6/μL','Hb 10.2 L g/dL','Ht 31.0 %','PLT 18.2 ×10^4/μL',
+ 'PT 13.8 秒','PT% 72 %','PT-INR 1.25','APTT 38.5 秒','Dダイマー 4.2 μg/mL',
+ 'Na 138 mEq/L (138-145)','K 4.1 mEq/L','Cl 104 mEq/L','BUN 28 mg/dL','CRE 1.32 H mg/dL','T-Bil 0.8','AST(GOT) 45 U/L','γ-GTP 30','CRP 8.52 H mg/dL','Alb 3.0 g/dL',
+ '血液ガス pH 7.31 PaCO2 30.0 PaO2 82 HCO3- 15.0 BE -10.2 SaO2 96.0','FiO2 0.4',
+ 'BP 92/52(65) mmHg HR 112 RR 24 BT 38.2℃','GCS E3V4M6','VT 420 mL PEEP 6 Ppeak 26 Pplat 20'].join('\n');impRender()});
+
+/* ---------- drug compositions (per person) ---------- */
+const DS={mode:null,list:[],col:null,editId:null,armDel:null};
+function findDrug(id){return id?DS.list.find(d=>d.id===id)||null:null}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nfmt=x=>String(+(+x).toPrecision(6));
+function dgMsg(t){$('#dgMsg').textContent=t||''}
+function renderDrugs(){
+  DS.list.sort((a,b)=>String(a.name).localeCompare(String(b.name),'ja'));
+  const opts=`<option value="">手入力</option>`+DS.list.map(d=>`<option value="${esc(d.id)}">${esc(d.name)}（${nfmt(d.mg)}mg / ${nfmt(d.ml)}mL）</option>`).join('');
+  $$('select[data-k="drug"]').forEach(s=>{s.innerHTML=opts});
+  if(S.drug&&!findDrug(S.drug))S.drug='';
+  const cur=findDrug(S.drug);if(cur&&(g('dmg')!==+cur.mg||g('dml')!==+cur.ml)){setVal('dmg',String(cur.mg));setVal('dml',String(cur.ml))}
+  $$('select[data-k="drug"]').forEach(s=>setEl(s,S.drug||''));
+  $('#dgList').innerHTML=DS.list.length?DS.list.map(d=>`<div class="dg"><div class="dg-t"><b>${esc(d.name)}</b><span>${nfmt(d.mg)} mg / ${nfmt(d.ml)} mL　濃度 ${nfmt(d.mg*1000/d.ml)} μg/mL</span>${d.memo?`<small>${esc(d.memo)}</small>`:''}</div>
+    <div class="acts"><button type="button" class="btn sm pri" data-dg="use" data-id="${esc(d.id)}">使う</button><button type="button" class="btn sm" data-dg="edit" data-id="${esc(d.id)}">編集</button><button type="button" class="btn sm danger" data-dg="del" data-id="${esc(d.id)}">${DS.armDel===d.id?'本当に削除':'削除'}</button></div></div>`).join('')
+    :`<div class="empty">まだ登録がありません。左（スマホでは上）のフォームに薬剤名・薬剤量・総量を入れて「登録する」を押すと、ここに並び、計算欄のプルダウンから選べるようになります。</div>`;
+  compute();
+}
+function resetForm(){DS.editId=null;['dg-name','dg-mg','dg-ml','dg-memo'].forEach(i=>$('#'+i).value='');$('#dgSave').textContent='登録する';$('#dgCancel').hidden=true}
+async function writeDrug(id,body){
+  if(DS.mode==='db'){await (id?DS.col.doc(id):DS.col.doc()).set(body);return}
+  if(id){const i=DS.list.findIndex(d=>d.id===id);DS.list[i]=Object.assign({id},body)}else DS.list.push(Object.assign({id:'d'+Date.now().toString(36)},body));
+  saveLocal();renderDrugs();
+}
+async function removeDrug(id){
+  if(DS.mode==='db'){await DS.col.doc(id).delete();return}
+  DS.list=DS.list.filter(d=>d.id!==id);saveLocal();renderDrugs();
+}
+function saveLocal(){try{localStorage.setItem('kc-drugs',JSON.stringify(DS.list))}catch(e){dgMsg('この端末に保存できませんでした（プライベートブラウズでは保存されません）')}}
+function errText(e){const c=e&&e.code;return c==='quota_exceeded'?'登録できる上限に達しています':c==='unavailable'||c==='deadline_exceeded'?'通信できませんでした。電波の良い所でもう一度お試しください':'保存できませんでした'+(c?'（'+c+'）':'')}
+$('#dgForm').addEventListener('submit',async e=>{e.preventDefault();
+  const name=$('#dg-name').value.trim(),mg=g2($('#dg-mg').value),ml=g2($('#dg-ml').value),memo=$('#dg-memo').value.trim();
+  if(!name)return dgMsg('薬剤名・組成名を入れてください');
+  if(!(mg>0)||!(ml>0))return dgMsg('薬剤量と総量は0より大きい数字で入れてください');
+  const wasEdit=!!DS.editId;
+  try{$('#dgSave').disabled=true;await writeDrug(DS.editId,{name,mg,ml,memo,updatedAt:Date.now()});dgMsg((wasEdit?'更新しました：':'登録しました：')+name);resetForm()}
+  catch(err){dgMsg(errText(err))}finally{$('#dgSave').disabled=false}});
+function g2(s){S.__t=s;const v=g('__t');delete S.__t;return v}
+$('#dgCancel').addEventListener('click',()=>{resetForm();dgMsg('')});
+$('#dgFromCur').addEventListener('click',()=>{if(ok(g('dmg')))$('#dg-mg').value=g('dmg');if(ok(g('dml')))$('#dg-ml').value=g('dml');dgMsg('計算欄の薬剤量・総量を取り込みました')});
+$('#dgList').addEventListener('click',async e=>{const b=e.target.closest('[data-dg]');if(!b)return;const d=findDrug(b.dataset.id);if(!d)return;
+  if(b.dataset.dg==='use'){setVal('drug',d.id);setVal('dmg',String(d.mg));setVal('dml',String(d.ml));compute();document.querySelector('[data-panel="drug"] .sec').scrollIntoView({behavior:'smooth',block:'start'});return}
+  if(b.dataset.dg==='edit'){DS.editId=d.id;$('#dg-name').value=d.name;$('#dg-mg').value=nfmt(d.mg);$('#dg-ml').value=nfmt(d.ml);$('#dg-memo').value=d.memo||'';$('#dgSave').textContent='更新する';$('#dgCancel').hidden=false;dgMsg('「'+d.name+'」を編集中');$('#dgForm').scrollIntoView({behavior:'smooth',block:'start'});return}
+  if(b.dataset.dg==='del'){if(DS.armDel!==d.id){DS.armDel=d.id;renderDrugs();setTimeout(()=>{if(DS.armDel===d.id){DS.armDel=null;renderDrugs()}},4000);return}
+    DS.armDel=null;try{await removeDrug(d.id);if(DS.editId===d.id)resetForm();dgMsg('削除しました：'+d.name)}catch(err){dgMsg(errText(err));renderDrugs()}}});
+$('#dgExport').addEventListener('click',()=>{
+  const txt='KC-DRUGS:'+JSON.stringify(DS.list.map(({name,mg,ml,memo})=>({name,mg,ml,memo:memo||''})));
+  const ta=$('#dgText');ta.value=txt;
+  const done=()=>dgMsg(DS.list.length+'件を書き出してコピーしました。もう一方の端末に貼り付けてください');
+  const fallback=()=>{ta.focus();ta.select();dgMsg('自動でコピーできませんでした。欄の文字を選択してコピーしてください')};
+  try{navigator.clipboard.writeText(txt).then(done,fallback)}catch(e){fallback()}});
+$('#dgImport').addEventListener('click',async()=>{
+  let arr;try{arr=JSON.parse($('#dgText').value.trim().replace(/^KC-DRUGS:/,''))}catch(e){return dgMsg('読み取れませんでした。書き出した文字をそのまま貼り付けてください')}
+  if(!Array.isArray(arr))return dgMsg('読み取れませんでした。書き出した文字をそのまま貼り付けてください');
+  const key=d=>String(d.name).trim()+'|'+(+d.mg)+'|'+(+d.ml);const have=new Set(DS.list.map(key));let n=0,skip=0;
+  try{for(const d of arr){const name=String(d&&d.name||'').trim().slice(0,60),mg=+d.mg,ml=+d.ml;
+      if(!name||!(mg>0)||!(ml>0)){skip++;continue}const body={name,mg,ml,memo:String(d.memo||'').slice(0,120),updatedAt:Date.now()};
+      if(have.has(key(body))){skip++;continue}await writeDrug(null,body);have.add(key(body));n++}
+    dgMsg(n+'件を取り込みました'+(skip?'（重複・不備 '+skip+'件は飛ばしました）':''));$('#dgText').value=''}
+  catch(err){dgMsg(errText(err)+'。'+n+'件まで取り込みました')}});
+function useLocal(){DS.mode='local';try{DS.list=JSON.parse(localStorage.getItem('kc-drugs')||'[]')||[]}catch(e){DS.list=[]}
+  $('#dgStore').textContent='この端末に保存';renderDrugs()}
+async function initDrugs(){
+  if(!(window.claude&&typeof window.claude.use==='function'))return useLocal();
+  let db=null,id=null;
+  try{db=await window.claude.use('db');const u=db?await window.claude.use('user'):null;id=u?await u.id():null}catch(e){db=null}
+  if(!db||!id)return useLocal();
+  DS.mode='db';DS.col=db.doc('data/users/'+id+'/settings').collection('drugs');
+  $('#dgStore').textContent='あなた専用に保存（他の人には見えません）';
+  DS.col.onSnapshot(s=>{DS.list=s.docs.map(d=>Object.assign({},d.data(),{id:d.id}));renderDrugs()},
+    e=>{dgMsg('登録済みの組成を読み込めませんでした。ページを開き直してください（'+(e&&e.code||'')+'）')});
+}
+
+apply(EXAMPLE);
+renderDrugs();
+initDrugs();
+const t0=load('kc-tab');showTab(TABS.some(t=>t[0]===t0)?t0:'resp');
+const s0=load('kc-sub');showSub(['gcs','apache','burn','renal'].includes(s0)?s0:'gcs');
+window.__kc={S,D,g,compute,RES,apache};
+})();
+</script>
+<script>
+if("serviceWorker" in navigator){addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})})}
+if(navigator.storage&&navigator.storage.persist){navigator.storage.persist().catch(function(){})}
+</script>
+</body>
+</html>
