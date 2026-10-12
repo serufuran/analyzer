@@ -1,5 +1,5 @@
-// オフライン用のキャッシュ。make_pwa.sh が 20261012181206 を日時に置き換える（版が変わると古いキャッシュを消す）
-const CACHE = 'kc-20261012181206';
+// オフライン用のキャッシュ。make_pwa.sh が 20261012205314 を日時に置き換える（版が変わると古いキャッシュを消す）
+const CACHE = 'kc-20261012205314';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
