@@ -81,7 +81,13 @@ button,input,select{font:inherit;color:inherit}
 .src dt{font-weight:700;font-size:13px;margin-top:8px}
 .src dd{margin:0;font-size:12.5px;color:var(--muted)}
 .imp{border-color:var(--accent)}
+.imp h2 small{display:block;margin:2px 0 0}
 .imp-body{padding:4px 16px 16px;display:grid;gap:10px}
+.imp-alt summary{cursor:pointer;font-size:13px;color:var(--accent);font-weight:700}
+.imp-alt[open] summary{margin-bottom:8px}
+#ocrBox progress{width:100%;height:8px;accent-color:var(--accent)}
+.ocr-btns label.btn{cursor:pointer}
+.ocr-btns label.btn[aria-disabled]{opacity:.5;pointer-events:none}
 .imp-how{margin:0;padding-left:1.3em;font-size:13.5px;display:grid;gap:4px}
 .imp textarea{width:100%;font:15px/1.5 var(--font-num);background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical}
 .imp textarea:focus{border-color:var(--accent);outline:none;background:var(--surface)}
@@ -219,20 +225,27 @@ main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
     <button class="btn" type="button" id="btnClear">すべてクリア</button>
     <button class="btn" type="button" id="btnExample">例を入れる</button>
     <button class="btn" type="button" id="btnAbout">出典・使い方</button>
-    <button class="btn pri" type="button" id="btnImp">文字から取り込む</button>
+    <button class="btn pri" type="button" id="btnImp">写真から取り込む</button>
   </div>
 </div></header>
 
 <main class="wrap">
   <section class="sec imp" id="impPanel" hidden aria-label="文字から取り込む">
-    <header><h2>文字から取り込む<small>検査値・バイタル・呼吸器の設定</small></h2></header>
+    <header><h2>写真から取り込む<small>検査値・バイタル・呼吸器の設定</small></h2></header>
     <div class="imp-body">
       <ol class="imp-how">
-        <li>下の欄をタップし、もう一度タップして出るメニューから<b>「テキストをスキャン」</b>を選びます（キーボード上のスキャンのボタンでも使えます）。</li>
-        <li>カメラを検査結果の一覧などに向け、文字が黄色の枠で囲まれたら<b>「挿入」</b>を押します。写真は保存されません。</li>
-        <li>見つかった項目が下に並びます。値を確かめ、<b>「チェックした項目を入力」</b>を押してください。</li>
+        <li><b>「撮影して読み取る」</b>を押し、検査結果の表を撮ります。表が画面いっぱいに、まっすぐ写るように撮ってください（明るい場所で、影や反射を避けます）。</li>
+        <li>端末の中で文字を読み、同じ行の項目名と数値を組にして下に並べます。写真はアルバムに保存されず、外部にも送りません。</li>
+        <li>値を確かめ、<b>「チェックした項目を入力」</b>を押してください。</li>
       </ol>
-      <textarea id="impText" rows="6" placeholder="ここをタップして「テキストをスキャン」。写真アプリでコピーした文字の貼り付けもできます" aria-label="読み取った文字"></textarea>
+      <div class="btn-row ocr-btns">
+        <label class="btn pri" for="ocrCam">撮影して読み取る</label><input type="file" id="ocrCam" accept="image/*" capture="environment" hidden>
+        <label class="btn" for="ocrPick">写真を選んで読み取る</label><input type="file" id="ocrPick" accept="image/*" hidden>
+      </div>
+      <label class="chk" for="ocrJpn"><input type="checkbox" id="ocrJpn">日本語の項目名も読む（「ナトリウム」など。読み取りに時間がかかります）</label>
+      <div id="ocrBox" hidden><progress id="ocrProg" max="1" value="0"></progress><p class="imp-other" id="ocrStatus" role="status" style="margin:4px 0 0"></p></div>
+      <details class="imp-alt"><summary>読み取った文字（直接の入力・貼り付け・iPhoneの「テキストをスキャン」もここに）</summary>
+      <textarea id="impText" rows="6" placeholder="読み取った文字がここに入ります。手で直したり、文字を貼り付けたりもできます" aria-label="読み取った文字"></textarea></details>
       <div class="btn-row"><button class="btn" type="button" id="impSample">見本の文字で試す</button><button class="btn" type="button" id="impClear">欄を空にする</button><button class="btn" type="button" id="impClose">閉じる</button></div>
       <div id="impResult"></div>
     </div>
@@ -339,7 +352,7 @@ sec('血液ガス','酸塩基・酸素化',
  R('CaO₂（動脈血酸素含量）','mL/dL',D.cao2,{dec:1,f:'1.34 × Hb × SaO₂ ＋ 0.0031 × PaO₂',judge:rng(17,20)}),
  'pHの判定と代償の予測は<span class="plus">＋α</span>です。混合性障害の最終判断は臨床経過と合わせて行ってください。')+
 sec('人工呼吸器','メカニクス',
- `<div class="grid">${F('tv','1回換気量 VT','mL')}${F('rr','呼吸回数','回/分')}${F('pip','最高気道内圧 PIP','cmH₂O')}${F('pplat','プラトー圧（EIP）','cmH₂O')}${F('peep','PEEP','cmH₂O')}${F('paw','平均気道内圧','cmH₂O')}${F('ti','吸気時間','秒')}</div>
+ `<div class="grid">${F('tv','1回換気量 VT','mL')}${F('rr','呼吸回数','回/分')}${F('pip','最高気道内圧 PIP','cmH₂O')}${F('pplat','プラトー圧（EIP）','cmH₂O')}${F('peep','PEEP','cmH₂O')}${F('paw','平均気道内圧 Pmean','cmH₂O')}${F('ti','吸気時間','秒')}</div>
  <p class="lbl" style="margin:0">O-indexは血液ガスのFiO₂・PaO₂を使います。</p>`,
  R('分時換気量 MV','L/分',()=>{const t=g('tv'),r=g('rr');return ok(t,r)?t*r/1000:null},{dec:1,f:'VT × 呼吸回数 ÷ 1000'})+
  R('VT / 予測体重','mL/kg',()=>{const t=g('tv'),p=D.pbw();return ok(t,p)&&p>0?t/p:null},{dec:1,plus:1,f:'予測体重：男 50 / 女 45.5 ＋ 0.91 ×（身長 − 152.4）',judge:v=>v>8?['warn','8超']:v<4?['lo','4未満']:['ok','6〜8 目安']})+
@@ -348,7 +361,7 @@ sec('人工呼吸器','メカニクス',
  R('気道抵抗 Raw','cmH₂O/L/秒',()=>{const t=g('tv'),p=g('pip'),pl=g('pplat'),ti=g('ti');return ok(t,p,pl,ti)&&t>0&&ti>0?(p-pl)/(t/1000/ti):null},{dec:1,f:'（PIP − プラトー圧）÷ 吸気流量（VT ÷ 吸気時間）',judge:v=>v>15?['warn','上昇']:['ok','15以下'],note:()=>'定常流（矩形波）を想定した近似値です'})+
  R('駆動圧 ΔP','cmH₂O',()=>{const p=g('pplat'),e=g('peep');return ok(p,e)?p-e:null},{dec:0,f:'プラトー圧 − PEEP（= VT ÷ Cst）',judge:v=>v>=15?['warn','15以上']:['ok','15未満']})+
  R('プラトー圧','cmH₂O',()=>g('pplat'),{dec:0,plus:1,f:'肺保護換気の上限目安 30',judge:v=>v>30?['bad','30超']:['ok','30以下']})+
- R('O-index（酸素化指数）','',()=>{const f=D.fio2(),p=g('paw'),a=g('pao2');return ok(f,p,a)&&a>0?f*p*100/a:null},{dec:1,f:'（FiO₂ × 平均気道内圧 × 100）÷ PaO₂　※FiO₂は小数',note:v=>v===null?'':'値が大きいほど酸素化障害が重いことを示します'})+
+ R('O-index（酸素化指数）','',()=>{const f=D.fio2(),p=g('paw'),a=g('pao2');return ok(f,p,a)&&a>0?f*p*100/a:null},{dec:1,f:'（FiO₂ × 平均気道内圧 Pmean × 100）÷ PaO₂　※FiO₂は小数',note:v=>v===null?'':'値が大きいほど酸素化障害が重いことを示します'})+
  R('RSBI（浅速呼吸指数）','回/分/L',()=>{const r=g('rr'),t=g('tv');return ok(r,t)&&t>0?r/t*1000:null},{dec:0,f:'呼吸回数 ÷ 1回換気量(mL) × 1000',
    judge:v=>v<105?['ok','105未満']:['warn','105以上'],note:v=>v===null?'':'自発呼吸トライアル中の値で評価します。105未満は人工呼吸器離脱の成功を予測する目安です（＋α）'}),
  'Excelの「MV・RR」からVTを求める方式は、VTを直接入力する形に変更しました（MVは結果側に表示）。');
@@ -528,6 +541,7 @@ P.lab=`<section class="sec"><header><h2>検査の基準値<small>値を入れる
    <dt>挿管中の予測V</dt><dd>Rutledge R, et al. J Trauma 1996;41:514-22</dd>
    <dt>APACHE II</dt><dd>Knaus WA, et al. Crit Care Med 1985;13:818-29</dd>
    <dt>熱傷指数・熱傷予後指数・Baxter法</dt><dd>熱傷診療ガイドライン（日本熱傷学会）／Baxter CR, Shires T. Ann N Y Acad Sci 1968;150:874-94</dd>
+   <dt>写真からの文字認識</dt><dd>Tesseract.js 5.1.1・Tesseract OCR（Apache License 2.0）。端末の中だけで処理します</dd>
    <dt>γ（μg/kg/分）</dt><dd>単位換算のみ。組成は使用者が登録したもの</dd>
    <dt>検査の基準値</dt><dd>特定行為研修資料「検査結果表」（各施設の基準値を優先）</dd>
   </dl>
@@ -662,7 +676,7 @@ const IMP_ITEMS=[
  {k:'svo2',l:'SvO₂',u:'%',a:['SvO2','混合静脈血酸素飽和度',{t:'ScvO2',w:'ScvO₂をSvO₂の欄に入れます'}],r:[5,100],c:'frac'},
  {k:'pvo2',l:'PvO₂',u:'mmHg',a:['PvO2','混合静脈血酸素分圧'],r:[5,100],c:'kpa'},
  {k:'spo2',l:'SpO₂',u:'%',a:['SpO2','SPO2','SpO₂','経皮的酸素飽和度','経皮酸素飽和度','パルスオキシメータ'],r:[30,100],c:'frac'},
- {k:'paw',l:'平均気道内圧',u:'cmH₂O',a:['Pmean','PMEAN','Paw','PAW','mPaw','MPAW','Pmean(Paw)','平均気道内圧','平均気道圧'],r:[1,60]},
+ {k:'paw',l:'平均気道内圧 Pmean',u:'cmH₂O',a:['Pmean','PMEAN','Paw','PAW','mPaw','MPAW','Pmean(Paw)','平均気道内圧','平均気道圧'],r:[1,60]},
  {k:'fio2',l:'FiO₂',u:'%',a:['FiO2','FIO2','F1O2','吸入酸素濃度','酸素濃度'],r:[21,100],c:'frac'},
  {k:'hb',l:'Hb',u:'g/dL',a:['Hb','HB','Hgb','HGB','tHb','ctHb','ヘモグロビン量','ヘモグロビン','血色素量','血色素'],r:[1,25],c:'hb'},
  {k:'hct',l:'Ht',u:'%',a:['Ht','HT','Hct','HCT','PCV','ヘマトクリット値','ヘマトクリット'],r:[5,80],c:'hct'},
@@ -838,10 +852,12 @@ function impParse(text){
     const def=IMP_ITEMS.find(x=>x.k===key)||{k:key,l:key==='pt'?'PT':key,u:key==='pt'?'秒':'',r:[0,1e9]};
     const lab=LABROWS.find(x=>x.k===key);
     const label=key==='pt'?'PT（秒）':key==='ip'?'P（無機リン）':def.l;const unitApp=key==='pt'?'秒':key==='ip'?'mg/dL':def.u||(lab?'':'');
-    const [cv,cn,cw]=impConv(def.c==="height"?"height":key,v,u);
+    let [cv,cn,cw]=impConv(def.c==="height"?"height":key,v,u);
     if(cn){note=note?note+'／'+cn:cn;warn=warn||cw}
     const r=(IMP_ITEMS.find(x=>x.k===key)||{r:[-1e9,1e9]}).r;
-    const outR=cv<r[0]||cv>r[1];
+    let outR=cv<r[0]||cv>r[1];
+    // a dropped decimal point is the commonest OCR slip (38.5 → 385): try putting it back
+    if(outR&&!cn&&Number.isInteger(v)&&Math.abs(v)>=10){for(const d of [10,100]){const t=v/d;if(t>=r[0]&&t<=r[1]){note=(note?note+'／':'')+`小数点を補いました（読み取りは ${v}）`;cv=t;cn='dec';warn=true;outR=false;break}}}
     if(outR&&extra&&extra.strict)return false;
     found.push({key,label,unit:unitApp,v:cn?+(+cv).toFixed(Math.abs(cv)>=100?0:Math.abs(cv)>=10?1:2):cv,src:src.trim(),note:outR?'ありえない値の可能性があります。確認してください':note,
       st:outR?'bad':warn?'warn':'ok'});
@@ -850,6 +866,11 @@ function impParse(text){
   const lines=text.normalize('NFKC').replace(/[‐‑‒–—―−]/g,'-').split(/\r?\n/);
   for(let raw of lines){
     let line=raw.replace(/\t/g,' ');if(!line.trim())continue;
+    // OCR clean-up: spaces inside Japanese words, O/l misread inside numbers, decimal comma
+    line=line.replace(/([぀-ヿ一-鿿])\s+(?=[぀-ヿ一-鿿])/g,'$1')
+      .replace(/(^|\s)([A-Za-z])\s+(?=[゠-ヿ一-鿿])/g,'$1$2')
+      .replace(/(\S?)(\d)[Oo](?=[\d.]|\s|$)/g,(m,a,d)=>a==='H'?m:a+d+'0').replace(/(\d\.)[Oo]/g,(m,d)=>d+'0').replace(/(\d)[lI|](?=\d)/g,(m,d)=>d+'1')
+      .replace(/(\d),(\d{1,2})(?!\d)/g,'$1.$2');
     // GCS like E3V4M6 / E3 VT M5
     line=line.replace(/E\s*([1-4])\s*V\s*([1-5]|T|t)\s*M\s*([1-6])/g,(all,e,v,m)=>{
       found.push({key:'gcsE',label:'GCS E',unit:'',v:e,src:all,note:'',st:'ok'});
@@ -901,9 +922,25 @@ function impParse(text){
 }
 let IMP_LAST=null;
 function impRender(){
-  const txt=$('#impText').value;const box=$('#impResult');
-  if(!txt.trim()){box.innerHTML='';IMP_LAST=null;return}
-  const r=impParse(txt);IMP_LAST=r;
+  const txt=$('#impText').value;
+  if(!txt.trim()){$('#impResult').innerHTML='';IMP_LAST=null;return}
+  impShow(impParse(txt));
+}
+/* two OCR passes → one list: per item keep the most trustworthy reading, flag disagreements */
+function impMerge(list){
+  const rank={ok:0,warn:1,bad:2},by=new Map(),order=[];
+  list.forEach((r,pass)=>{for(const f of r.found){if(f.dup)continue;if(!by.has(f.key)){by.set(f.key,[]);order.push(f.key)}by.get(f.key).push(Object.assign({},f,{pass}))}});
+  const found=order.map(k=>{
+    // majority vote across readings; ties go to the plausible value, then to the earlier reading
+    const votes={};for(const x of by.get(k))votes[String(x.v)]=(votes[String(x.v)]||0)+(x.st==='bad'?0.25:1);
+    const c=by.get(k).sort((x,y)=>votes[String(y.v)]-votes[String(x.v)]||rank[x.st]-rank[y.st]||x.pass-y.pass);const best=Object.assign({},c[0]);
+    const vals=[...new Set(c.map(x=>String(x.v)))];
+    if(vals.length>1){if(best.st==='ok')best.st='warn';best.note=(best.note?best.note+'／':'')+'読み取り結果が複数ありました（'+vals.join(' / ')+'）'}
+    return best});
+  return {found,other:[...new Set(list.flatMap(r=>r.other))]};
+}
+function impShow(r){
+  const box=$('#impResult');IMP_LAST=r;
   if(!r.found.length){box.innerHTML=`<p class="imp-sum">入力できる項目が見つかりませんでした。</p><p class="imp-other">項目名と数値が読み取れているか確認してください。${r.other.length?'対応する入力欄がない項目：'+esc(r.other.join('、')):''}</p>`;return}
   const cur=k=>{const v=S[k];return v===undefined||v===''?'':String(v)};
   const disp=(k,v)=>k==='sex'?(v==='m'?'男':'女'):String(v);
@@ -916,6 +953,158 @@ function impRender(){
    ${r.other.length?`<p class="imp-other">対応する入力欄がないため入れない項目：${esc(r.other.join('、'))}</p>`:''}
    ${applyBar}`;
 }
+/* ---------- photo OCR (Tesseract.js, on device) ---------- */
+/* Words come back with positions. Tables are rebuilt row by row: each word's vertical centre is
+   corrected for page tilt, words with close centres form one row, and rows are read left to right. */
+const OCR={worker:null,lang:null,busy:false};
+function ocrStatus(t,p){$('#ocrBox').hidden=false;$('#ocrStatus').textContent=t;const pr=$('#ocrProg');if(p==null)pr.removeAttribute('value');else pr.value=p}
+function loadScript(src){return new Promise((res,rej)=>{if(window.Tesseract)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('script'));document.head.appendChild(s)})}
+async function ocrGetWorker(lang){
+  await loadScript('ocr/tesseract.min.js');
+  if(OCR.worker&&OCR.lang===lang)return OCR.worker;
+  if(OCR.worker){try{await OCR.worker.terminate()}catch(e){}OCR.worker=null}
+  const base=new URL('ocr/',location.href).href;
+  OCR.worker=await Tesseract.createWorker(lang,1,{workerPath:base+'worker.min.js',corePath:base,langPath:base,workerBlobURL:false,
+    logger:m=>{if(!OCR.busy)return;const map={'loading tesseract core':'文字認識の準備中','initializing tesseract':'文字認識の準備中','loading language traineddata':'文字データを読み込み中','initializing api':'文字認識の準備中','recognizing text':'文字を読み取り中'};
+      const t=map[m.status];if(t)ocrStatus(t+(m.status==='recognizing text'?`（${OCR.pass||1}/3回目 ${Math.round((m.progress||0)*100)}%）`:''),m.progress)}});
+  await OCR.worker.setParameters({tessedit_pageseg_mode:'11',preserve_interword_spaces:'1'});
+  OCR.lang=lang;return OCR.worker;
+}
+async function ocrPrepare(file){
+  const url=URL.createObjectURL(file);
+  try{const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('image'));img.src=url});
+    const max=2200,w=img.naturalWidth,h=img.naturalHeight,s=Math.min(1,max/Math.max(w,h));
+    const c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
+    const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);
+    const d=x.getImageData(0,0,c.width,c.height),p=d.data;
+    // grayscale, stretch contrast, and turn light-on-dark screens (monitors, ventilators) into dark-on-light
+    const hist=new Array(256).fill(0),n=p.length/4;
+    for(let i=0;i<p.length;i+=4){const y=Math.round(0.299*p[i]+0.587*p[i+1]+0.114*p[i+2]);p[i]=y;hist[y]++}
+    let lo=0,hi=255,acc=0;for(let v=0;v<256;v++){acc+=hist[v];if(acc>=n*0.02){lo=v;break}}
+    acc=0;for(let v=255;v>=0;v--){acc+=hist[v];if(acc>=n*0.02){hi=v;break}}
+    let mean=0;for(let v=0;v<256;v++)mean+=v*hist[v];mean/=n;
+    const inv=mean<110;
+    if(inv){ // dark screen: coloured text (yellow, red, cyan…) is bright in at least one channel
+      hist.fill(0);const src=x.getImageData(0,0,c.width,c.height).data;
+      for(let i=0;i<p.length;i+=4){const y=Math.max(src[i],src[i+1],src[i+2]);p[i]=y;hist[y]++}
+      lo=0;hi=255;acc=0;for(let v=0;v<256;v++){acc+=hist[v];if(acc>=n*0.02){lo=v;break}}
+      acc=0;for(let v=255;v>=0;v--){acc+=hist[v];if(acc>=n*0.01){hi=v;break}}}
+    const span=Math.max(1,hi-lo);
+    // paper prints stay as plain grayscale: stretching thins the decimal points
+    for(let i=0;i<p.length;i+=4){let y=p[i];if(inv){y=(y-lo)*255/span;y=255-(y<0?0:y>255?255:y)}p[i]=p[i+1]=p[i+2]=y}
+    x.putImageData(d,0,0);return c}
+  finally{URL.revokeObjectURL(url)}
+}
+function ocrWords(data){
+  if(data.words&&data.words.length)return data.words;
+  const out=[];for(const b of data.blocks||[])for(const pa of b.paragraphs||[])for(const l of pa.lines||[])for(const w of l.words||[])out.push(w);return out;
+}
+/* passes: [{data, scale}] — several readings of one photo (different modes / sizes). Words are put
+   back on the original scale and overlapping words are de-duplicated, keeping the more confident one. */
+function ocrRows(passes){
+  const all=[],lines=[];
+  for(const {data,scale} of passes){
+    for(const w of ocrWords(data))if(w.text&&w.text.trim()&&w.confidence>=15)
+      all.push({t:w.text.trim(),c:w.confidence-(scale<1&&(w.bbox.y1-w.bbox.y0)/scale<70?25:0),x0:w.bbox.x0/scale,x1:w.bbox.x1/scale,y0:w.bbox.y0/scale,y1:w.bbox.y1/scale});
+    for(const b of data.blocks||[])for(const pa of b.paragraphs||[])for(const l of pa.lines||[])if(l.baseline)lines.push({bl:l.baseline,scale})}
+  const ov=(a,b)=>{const ix=Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0),iy=Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0);if(ix<=0||iy<=0)return 0;
+    const i=ix*iy;return i/Math.min((a.x1-a.x0)*(a.y1-a.y0),(b.x1-b.x0)*(b.y1-b.y0))};
+  all.sort((a,b)=>b.c-a.c);const words=[];
+  for(const w of all){if(!words.some(k=>ov(k,w)>0.5))words.push(w)}
+  for(const w of words)w.h=w.y1-w.y0;
+  if(!words.length)return '';
+  const med=a=>{const s=[...a].sort((p,q)=>p-q);return s[Math.floor(s.length/2)]};
+  const H=med(words.map(w=>w.h))||20;
+  // page tilt from the text lines Tesseract found
+  const slopes=[];for(const {bl,scale} of lines){if((bl.x1-bl.x0)/scale>H*4)slopes.push((bl.y1-bl.y0)/(bl.x1-bl.x0))}
+  const k=slopes.length?Math.max(-0.2,Math.min(0.2,med(slopes))):0;
+  for(const w of words){w.cy=(w.y0+w.y1)/2-k*(w.x0+w.x1)/2}
+  words.sort((a,b)=>a.cy-b.cy);
+  const rows=[];
+  for(const w of words){const r=rows[rows.length-1];
+    if(r&&Math.abs(w.cy-r.cy)<=H*0.55){r.ws.push(w);r.cy=(r.cy*(r.ws.length-1)+w.cy)/r.ws.length}else rows.push({cy:w.cy,ws:[w]})}
+  const cjk=c=>/[぀-ヿ一-鿿]/.test(c);
+  const join=ws=>{let s='',prev=null;
+    for(const w of ws){if(prev){const gap=w.x0-prev.x1;s+=(cjk(prev.t.slice(-1))&&cjk(w.t[0])&&gap<H*0.8)?'':gap>H*1.6?'   ':' '}s+=w.t;prev=w}
+    return s};
+  rows.forEach(r=>r.ws.sort((a,b)=>a.x0-b.x0));
+  return ocrPairStacked(rows,H,join).join('\n');
+}
+/* Monitors, ventilators and flow sheets often print the label in one row and the value in the row
+   below (or above): "PEEP  Ppeak  VTe" / "6  26  455". Such a label-only row is paired with the
+   nearest numbers-only row, word by word, by horizontal position. */
+function ocrKind(t){
+  const s=t.normalize('NFKC').replace(/[:：]$/,'');
+  if(/^[-+]?\d+(?:[.,]\d+)?$/.test(s)||/^\d{2,3}\/\d{2,3}(?:\(\d{2,3}\))?$/.test(s))return 'num';
+  const low=s.toLowerCase();
+  for(const e of IMP_ENTRIES){if(!e.it)continue;const hay=e.cs?s:low;
+    if(hay===e.lt)return 'lab';
+    if(e.t.length>=2&&hay.startsWith(e.lt)&&!isAN(s[e.t.length]))return 'lab'}
+  return '';
+}
+function ocrPairStacked(rows,H,join){
+  const info=rows.map(r=>{for(const w of r.ws){w.k=ocrKind(w.t);w.cx=(w.x0+w.x1)/2}
+    return {r,nl:r.ws.filter(w=>w.k==='lab').length,nn:r.ws.filter(w=>w.k==='num').length}});
+  const pairOf=new Map(),claimed=new Set();
+  info.forEach((a,i)=>{
+    if(!(a.nl>0&&a.nn===0))return;
+    // nearest numbers-only row below, then above; rows holding only units or symbols are skipped over
+    for(const step of [1,-1]){let found=-1;
+      for(let j=i+step,hops=0;j>=0&&j<info.length&&hops<3;j+=step,hops++){const b=info[j];
+        if(Math.abs(b.r.cy-a.r.cy)>H*8)break;
+        if(b.nl>0)break;
+        if(b.nn>0){if(!claimed.has(j))found=j;break}}
+      if(found>=0){pairOf.set(i,found);claimed.add(found);return}}
+  });
+  const out=[];
+  info.forEach((a,i)=>{
+    if(claimed.has(i))return;
+    if(!pairOf.has(i)){out.push(join(a.r.ws));return}
+    const L=a.r.ws.filter(w=>w.k==='lab'),N=info[pairOf.get(i)].r.ws.filter(w=>w.k==='num');
+    const cand=[];for(const l of L)for(const n of N){const d=Math.abs(l.cx-n.cx);if(d<Math.max(l.x1-l.x0,n.x1-n.x0)*1.2+H*2.5)cand.push({l,n,d})}
+    cand.sort((p,q)=>p.d-q.d);const ul=new Set(),un=new Set(),pairs=[];
+    for(const c of cand){if(ul.has(c.l)||un.has(c.n))continue;ul.add(c.l);un.add(c.n);pairs.push(c)}
+    pairs.sort((p,q)=>p.l.x0-q.l.x0).forEach(p=>out.push(p.l.t+' '+p.n.t));
+    const rest=info[pairOf.get(i)].r.ws.filter(w=>!un.has(w));if(rest.length)out.push(join(rest));
+  });
+  return out;
+}
+async function ocrRun(file){
+  if(!file||OCR.busy)return;OCR.busy=true;
+  const lang=$('#ocrJpn').checked?'eng+jpn':'eng';
+  $$('.ocr-btns .btn').forEach(b=>b.setAttribute('aria-disabled','true'));
+  try{
+    ocrStatus('写真を準備中',null);
+    const canvas=await ocrPrepare(file);
+    ocrStatus('文字認識の準備中（初回は部品の読み込みに少し時間がかかります）',null);
+    const worker=await ocrGetWorker(lang);
+    // three readings: sparse mode, block mode, and a half-size copy (large digits on screens read better small)
+    const half=document.createElement('canvas');half.width=Math.round(canvas.width/2);half.height=Math.round(canvas.height/2);
+    half.getContext('2d').drawImage(canvas,0,0,half.width,half.height);
+    const passes=[];
+    for(const [i,psm,img,scale] of [[1,'11',canvas,1],[2,'6',canvas,1],[3,'11',half,0.5]]){
+      OCR.pass=i;ocrStatus(`文字を読み取り中（${i}/3回目）`,0);
+      await worker.setParameters({tessedit_pageseg_mode:psm,preserve_interword_spaces:'1'});
+      const {data}=await worker.recognize(img,{},{text:true,blocks:true});
+      passes.push({data,scale});
+    }
+    canvas.width=canvas.height=half.width=half.height=0;
+    const union=ocrRows(passes);
+    $('#impText').value=union;
+    // the half-size reading only helps with large digits, so it does not vote on its own
+    impShow(impMerge([impParse(union),...passes.filter(p=>p.scale===1).map(p=>impParse(ocrRows([p])))]));
+    const n=IMP_LAST?IMP_LAST.found.length:0;
+    ocrStatus(n?`読み取りが終わりました。${n}項目が見つかりました。下で確認してください。`:'項目が見つかりませんでした。表が大きく、まっすぐ写るように撮り直してください。下の「読み取った文字」で中身を確認できます。',1);
+    if(n)$('#impResult').scrollIntoView({block:'start',behavior:'smooth'});
+  }catch(err){
+    ocrStatus(/script/.test(String(err&&err.message))?'この版では写真の読み取りが使えません。公開版（serufuran.github.io/analyzer）で使ってください。':'読み取りに失敗しました。もう一度試すか、写真を撮り直してください。',0);
+  }finally{OCR.busy=false;$$('.ocr-btns .btn').forEach(b=>b.removeAttribute('aria-disabled'));$('#ocrCam').value='';$('#ocrPick').value=''}
+}
+$('#ocrCam').addEventListener('change',e=>{e.stopPropagation();ocrRun(e.target.files[0])});
+$('#ocrPick').addEventListener('change',e=>{e.stopPropagation();ocrRun(e.target.files[0])});
+try{$('#ocrJpn').checked=localStorage.getItem('kc-ocr-jpn')==='1'}catch(e){}
+$('#ocrJpn').addEventListener('change',e=>{e.stopPropagation();try{localStorage.setItem('kc-ocr-jpn',e.target.checked?'1':'0')}catch(err){}});
+
 let impTimer=null;
 $('#impText').addEventListener('input',e=>{e.stopPropagation();clearTimeout(impTimer);impTimer=setTimeout(impRender,250)});
 $('#impResult').addEventListener('click',e=>{if(!e.target.closest('[data-imp-apply]')||!IMP_LAST)return;
