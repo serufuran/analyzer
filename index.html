@@ -313,6 +313,14 @@ const P={};
 
 /* 呼吸 */
 P.resp=
+sec('バイタルサイン','呼吸状態',
+ `<div class="grid">${F('resp','呼吸回数','brpm')}${F('spo2','SpO₂','%')}
+ ${F('fio2','FiO₂','%',{cls:'span2',chips:[['21','室内気 21'],['30','30'],['40','40'],['50','50'],['60','60'],['100','100']]})}</div>`,
+ R('ROX index','',()=>{const s=g('spo2'),f=D.fio2(),r=g('resp');return ok(s,f,r)&&f>0&&r>0?(s/f)/r:null},{dec:2,f:'（SpO₂ ÷ FiO₂）÷ 呼吸回数　※FiO₂は小数（40% → 0.4）',
+   judge:v=>v>=4.88?['ok','4.88以上']:['warn','4.88未満'],
+   note:v=>v===null?'':v>=4.88?'人工呼吸器（挿管）を要さない可能性が高い目安です':'4.88未満では、高流量鼻カニュラ（HFNC）から人工呼吸器への移行に注意が必要です'})+
+ R('S/F比','',()=>{const s=g('spo2'),f=D.fio2();return ok(s,f)&&f>0?s/f:null},{dec:0,plus:1,f:'SpO₂ ÷ FiO₂（ROX indexの分子）'}),
+ 'ROX indexはHFNC使用中の患者で検証された指標です（開始後2・6・12時間で評価）。呼吸回数は評価タブのAPACHE IIの呼吸数と連動します。')+
 sec('血液ガス','酸塩基・酸素化',
  `<div class="grid">${F('ph','pH','')}${F('pao2','PaO₂','mmHg')}${F('paco2','PaCO₂','mmHg')}${F('hco3','HCO₃⁻','mEq/L')}${F('be','BE','mEq/L',{im:'text',ph:'-3'})}${F('sao2','SaO₂','%')}
  ${F('fio2','FiO₂','%',{cls:'span2',chips:[['21','室内気 21'],['30','30'],['40','40'],['50','50'],['60','60'],['100','100']]})}
@@ -331,14 +339,18 @@ sec('血液ガス','酸塩基・酸素化',
  R('CaO₂（動脈血酸素含量）','mL/dL',D.cao2,{dec:1,f:'1.34 × Hb × SaO₂ ＋ 0.0031 × PaO₂',judge:rng(17,20)}),
  'pHの判定と代償の予測は<span class="plus">＋α</span>です。混合性障害の最終判断は臨床経過と合わせて行ってください。')+
 sec('人工呼吸器','メカニクス',
- `<div class="grid">${F('tv','1回換気量 VT','mL')}${F('rr','呼吸回数','回/分')}${F('pip','最高気道内圧 PIP','cmH₂O')}${F('pplat','プラトー圧（EIP）','cmH₂O')}${F('peep','PEEP','cmH₂O')}${F('ti','吸気時間','秒')}</div>`,
+ `<div class="grid">${F('tv','1回換気量 VT','mL')}${F('rr','呼吸回数','回/分')}${F('pip','最高気道内圧 PIP','cmH₂O')}${F('pplat','プラトー圧（EIP）','cmH₂O')}${F('peep','PEEP','cmH₂O')}${F('paw','平均気道内圧','cmH₂O')}${F('ti','吸気時間','秒')}</div>
+ <p class="lbl" style="margin:0">O-indexは血液ガスのFiO₂・PaO₂を使います。</p>`,
  R('分時換気量 MV','L/分',()=>{const t=g('tv'),r=g('rr');return ok(t,r)?t*r/1000:null},{dec:1,f:'VT × 呼吸回数 ÷ 1000'})+
  R('VT / 予測体重','mL/kg',()=>{const t=g('tv'),p=D.pbw();return ok(t,p)&&p>0?t/p:null},{dec:1,plus:1,f:'予測体重：男 50 / 女 45.5 ＋ 0.91 ×（身長 − 152.4）',judge:v=>v>8?['warn','8超']:v<4?['lo','4未満']:['ok','6〜8 目安']})+
  R('動的コンプライアンス Cdyn','mL/cmH₂O',()=>{const t=g('tv'),p=g('pip'),e=g('peep');return ok(t,p,e)&&p>e?t/(p-e):null},{dec:1,f:'VT ÷（PIP − PEEP）'})+
  R('静的コンプライアンス Cst','mL/cmH₂O',()=>{const t=g('tv'),p=g('pplat'),e=g('peep');return ok(t,p,e)&&p>e?t/(p-e):null},{dec:1,f:'VT ÷（プラトー圧 − PEEP）',judge:rng(50,100,['低下','50〜100',''])})+
  R('気道抵抗 Raw','cmH₂O/L/秒',()=>{const t=g('tv'),p=g('pip'),pl=g('pplat'),ti=g('ti');return ok(t,p,pl,ti)&&t>0&&ti>0?(p-pl)/(t/1000/ti):null},{dec:1,f:'（PIP − プラトー圧）÷ 吸気流量（VT ÷ 吸気時間）',judge:v=>v>15?['warn','上昇']:['ok','15以下'],note:()=>'定常流（矩形波）を想定した近似値です'})+
  R('駆動圧 ΔP','cmH₂O',()=>{const p=g('pplat'),e=g('peep');return ok(p,e)?p-e:null},{dec:0,f:'プラトー圧 − PEEP（= VT ÷ Cst）',judge:v=>v>=15?['warn','15以上']:['ok','15未満']})+
- R('プラトー圧','cmH₂O',()=>g('pplat'),{dec:0,plus:1,f:'肺保護換気の上限目安 30',judge:v=>v>30?['bad','30超']:['ok','30以下']}),
+ R('プラトー圧','cmH₂O',()=>g('pplat'),{dec:0,plus:1,f:'肺保護換気の上限目安 30',judge:v=>v>30?['bad','30超']:['ok','30以下']})+
+ R('O-index（酸素化指数）','',()=>{const f=D.fio2(),p=g('paw'),a=g('pao2');return ok(f,p,a)&&a>0?f*p*100/a:null},{dec:1,f:'（FiO₂ × 平均気道内圧 × 100）÷ PaO₂　※FiO₂は小数',note:v=>v===null?'':'値が大きいほど酸素化障害が重いことを示します'})+
+ R('RSBI（浅速呼吸指数）','回/分/L',()=>{const r=g('rr'),t=g('tv');return ok(r,t)&&t>0?r/t*1000:null},{dec:0,f:'呼吸回数 ÷ 1回換気量(mL) × 1000',
+   judge:v=>v<105?['ok','105未満']:['warn','105以上'],note:v=>v===null?'':'自発呼吸トライアル中の値で評価します。105未満は人工呼吸器離脱の成功を予測する目安です（＋α）'}),
  'Excelの「MV・RR」からVTを求める方式は、VTを直接入力する形に変更しました（MVは結果側に表示）。');
 
 /* 循環 */
@@ -386,8 +398,9 @@ sec('栄養評価','Harris-Benedict',
    f:'男：66.47＋13.75×体重＋5×身長−6.76×年齢<br>女：655.1＋9.56×体重＋1.85×身長−4.67×年齢',note:()=>`性別「${sex()==='m'?'男':'女'}」の式で計算`})+
  R('必要エネルギー量','kcal/日',()=>{const w=g('wt'),h=g('ht'),a=g('age'),af=g('af'),sf=g('sf');if(!ok(w,h,a,af,sf))return null;const b=sex()==='m'?66.47+13.75*w+5*h-6.76*a:655.1+9.56*w+1.85*h-4.67*a;return b*af*sf},{dec:0,f:'BEE × 活動係数 × 傷害係数'}),null)+
 sec('水分量','',
- `<div class="grid">${F('temp','体温','℃')}${F('wfac','必要水分の係数','mL/kg',{chips:[['30','30'],['33','33'],['35','35']]})}</div>`,
+ `<div class="grid">${F('temp','体温','℃')}${F('wfac','必要水分の係数','mL/kg',{chips:[['25','25'],['30','30'],['33','33'],['35','35']]})}</div>`,
  R('必要水分量','mL/日',()=>{const w=g('wt'),k=g('wfac');return ok(w,k)?w*k:null},{dec:0,f:'体重 × 係数（Excelは33）'})+
+ R('代謝水','mL/日',()=>{const w=g('wt');return ok(w)?w*5:null},{dec:0,f:'体重 × 5'})+
  R('不感蒸泄量','mL/日',()=>{const w=g('wt'),t=g('temp');return ok(w,t)?w*15+200*Math.max(0,t-36.8):null},{dec:0,f:'体重 × 15 ＋ 200 ×（体温 − 36.8）',note:()=>{const t=g('temp');return ok(t)&&t<=36.8?'体温が36.8℃以下のため、発熱分は0として計算':''}}),null);
 
 /* 薬剤 */
@@ -507,6 +520,10 @@ P.lab=`<section class="sec"><header><h2>検査の基準値<small>値を入れる
    <dt>体表面積（DuBois式）</dt><dd>Du Bois D, Du Bois EF. Arch Intern Med 1916;17:863-71</dd>
    <dt>Cockcroft-Gaultの式</dt><dd>Cockcroft DW, Gault MH. Nephron 1976;16:31-41</dd>
    <dt>eGFR（日本人の推算式）とGFR区分</dt><dd>Matsuo S, et al. Am J Kidney Dis 2009;53:982-92／エビデンスに基づくCKD診療ガイドライン（日本腎臓学会）</dd>
+   <dt>ROX index</dt><dd>Roca O, et al. Am J Respir Crit Care Med 2019;199:1368-76</dd>
+   <dt>O-index（酸素化指数）</dt><dd>Ortiz RM, et al. Pediatr Clin North Am 1987;34:39-46／Pediatric Acute Lung Injury Consensus Conference. Pediatr Crit Care Med 2015;16:428-39</dd>
+   <dt>RSBI（浅速呼吸指数）</dt><dd>Yang KL, Tobin MJ. N Engl J Med 1991;324:1445-50</dd>
+   <dt>代謝水・必要水分量・不感蒸泄</dt><dd>輸液療法の標準的な教科書（代謝水 体重×5 mL/日）</dd>
    <dt>GCS</dt><dd>Teasdale G, Jennett B. Lancet 1974;2:81-4</dd>
    <dt>挿管中の予測V</dt><dd>Rutledge R, et al. J Trauma 1996;41:514-22</dd>
    <dt>APACHE II</dt><dd>Knaus WA, et al. Crit Care Med 1985;13:818-29</dd>
@@ -624,7 +641,7 @@ function apache(){
 const DEFAULTS={sex:'m',af:'1.2',sf:'1.2',wfac:'33',drug:'',chronic:'0'};
 const EXAMPLE={age:'70',ht:'168',wt:'65',ph:'7.31',pao2:'82',paco2:'30',hco3:'15',be:'-10',sao2:'96',fio2:'40',na:'138',cl:'104',alb:'3.0',hb:'10.2',
  tv:'420',rr:'16',pip:'26',pplat:'20',peep:'6',ti:'1.0',sbp:'92',dbp:'52',hr:'112',co:'4.6',svo2:'64',pvo2:'35',cvp:'9',mpap:'24',pawp:'13',
- temp:'38.2',dmg:'4',dml:'20',rate:'3',tgamma:'0.1',gcsE:'3',gcsV:'4',gcsM:'6',resp:'24',k:'4.1',cr:'1.3',hct:'31',wbc:'14.2',b2:'20',b3:'5'};
+ temp:'38.2',dmg:'4',dml:'20',rate:'3',tgamma:'0.1',gcsE:'3',gcsV:'4',gcsM:'6',resp:'24',spo2:'95',paw:'12',k:'4.1',cr:'1.3',hct:'31',wbc:'14.2',b2:'20',b3:'5'};
 function apply(obj){Object.keys(S).forEach(k=>delete S[k]);$$('[data-k]').forEach(el=>setEl(el,''));
   Object.entries(Object.assign({},DEFAULTS,obj)).forEach(([k,v])=>setVal(k,v));compute()}
 $('#btnClear').addEventListener('click',()=>{apply({});$('#exTag').dataset.on='0'});
@@ -644,6 +661,8 @@ const IMP_ITEMS=[
  {k:'sao2',l:'SaO₂',u:'%',a:['SaO2','sO2','SO2','O2Sat','O2SAT','動脈血酸素飽和度','酸素飽和度'],r:[20,100],c:'frac'},
  {k:'svo2',l:'SvO₂',u:'%',a:['SvO2','混合静脈血酸素飽和度',{t:'ScvO2',w:'ScvO₂をSvO₂の欄に入れます'}],r:[5,100],c:'frac'},
  {k:'pvo2',l:'PvO₂',u:'mmHg',a:['PvO2','混合静脈血酸素分圧'],r:[5,100],c:'kpa'},
+ {k:'spo2',l:'SpO₂',u:'%',a:['SpO2','SPO2','SpO₂','経皮的酸素飽和度','経皮酸素飽和度','パルスオキシメータ'],r:[30,100],c:'frac'},
+ {k:'paw',l:'平均気道内圧',u:'cmH₂O',a:['Pmean','PMEAN','Paw','PAW','mPaw','MPAW','Pmean(Paw)','平均気道内圧','平均気道圧'],r:[1,60]},
  {k:'fio2',l:'FiO₂',u:'%',a:['FiO2','FIO2','F1O2','吸入酸素濃度','酸素濃度'],r:[21,100],c:'frac'},
  {k:'hb',l:'Hb',u:'g/dL',a:['Hb','HB','Hgb','HGB','tHb','ctHb','ヘモグロビン量','ヘモグロビン','血色素量','血色素'],r:[1,25],c:'hb'},
  {k:'hct',l:'Ht',u:'%',a:['Ht','HT','Hct','HCT','PCV','ヘマトクリット値','ヘマトクリット'],r:[5,80],c:'hct'},
@@ -697,7 +716,7 @@ const IMP_ITEMS=[
  {k:'sbp',l:'収縮期血圧',u:'mmHg',a:['SBP','sBP','収縮期血圧','収縮期'],r:[30,300]},
  {k:'dbp',l:'拡張期血圧',u:'mmHg',a:['DBP','dBP','拡張期血圧','拡張期'],r:[10,200]},
  {k:'hr',l:'心拍数',u:'回/分',a:['HR','PR','心拍数','脈拍数','脈拍','Pulse','PULSE'],r:[20,260]},
- {k:'resp',l:'呼吸数（実測）',u:'回/分',a:['RR','呼吸数','呼吸回数','Resp','RESP',{t:'R',strict:1}],r:[3,80]},
+ {k:'resp',l:'呼吸回数',u:'回/分',a:['RR','呼吸数','呼吸回数','Resp','RESP',{t:'R',strict:1}],r:[3,80]},
  {k:'temp',l:'体温',u:'℃',a:['BT','KT','体温','Temp','TEMP',{t:'T',strict:1}],r:[28,44],c:'temp'},
  {k:'age',l:'年齢',u:'歳',a:['年齢','Age','AGE'],r:[0,120]},
  {k:'ht',l:'身長',u:'cm',a:['身長','Height','HEIGHT'],r:[40,250],c:'height'},
@@ -711,7 +730,7 @@ const IMP_ITEMS=[
  {k:'ti',l:'吸気時間',u:'秒',a:['Ti','TI','Tinsp','TINSP','I-time','吸気時間'],r:[0.1,5]}
 ];
 /* recognised but no matching field: consumed so their numbers are not mis-assigned */
-const IMP_IGNORE=['SpO2','MAP','平均血圧','Lac','LAC','乳酸','Lactate','iCa','Ca++','Ca2+','イオン化カルシウム','tCO2','TCO2','AG','アニオンギャップ','MCV','MCH','MCHC','RDW','eGFR','HbA1c','A1c','EtCO2','etCO2','ETCO2','JCS','P/F','CI','SV','SVR','SVV','Mg','マグネシウム','BNP','NT-proBNP','TnT','TnI','トロポニン','PCT','プロカルシトニン','Fe','フェリチン','ChE','CHE','LAP','D-Bil','D-BIL','直接ビリルビン','I-Bil','LDL','LDL-C','LDL-Cho','COHb','MetHb','O2Hb','FO2Hb','Osm','浸透圧','CK-MB','CKMB','R-index','CCr','CrCl','Ret','網赤血球','Mono','Lymph','Neut','好中球','リンパ球','単球','好酸球','好塩基球','Baso','Eos','MPV','PDW','Pmean','MV','MVe','Cdyn','Cst','Raw','I:E','O2流量','流量','Rate','mL/h','分時換気量','インスリン','ヘパリン','HbA1c(NGSP)','GCS合計'];
+const IMP_IGNORE=['MAP','平均血圧','Lac','LAC','乳酸','Lactate','iCa','Ca++','Ca2+','イオン化カルシウム','tCO2','TCO2','AG','アニオンギャップ','MCV','MCH','MCHC','RDW','eGFR','HbA1c','A1c','EtCO2','etCO2','ETCO2','JCS','P/F','CI','SV','SVR','SVV','Mg','マグネシウム','BNP','NT-proBNP','TnT','TnI','トロポニン','PCT','プロカルシトニン','Fe','フェリチン','ChE','CHE','LAP','D-Bil','D-BIL','直接ビリルビン','I-Bil','LDL','LDL-C','LDL-Cho','COHb','MetHb','O2Hb','FO2Hb','Osm','浸透圧','CK-MB','CKMB','R-index','CCr','CrCl','Ret','網赤血球','Mono','Lymph','Neut','好中球','リンパ球','単球','好酸球','好塩基球','Baso','Eos','MPV','PDW','MV','MVe','Cdyn','Cst','Raw','I:E','O2流量','流量','Rate','mL/h','分時換気量','インスリン','ヘパリン','HbA1c(NGSP)','GCS合計'];
 const IMP_ENTRIES=(()=>{const out=[];
   for(const it of IMP_ITEMS)for(const a of it.a){const o=typeof a==='string'?{t:a}:a;out.push({t:o.t.normalize('NFKC'),it,w:o.w||'',strict:!!(o.strict||it.strict)})}
   for(const t of IMP_IGNORE)out.push({t:t.normalize('NFKC'),it:null});
@@ -748,7 +767,7 @@ function impUnit(s){
   if(m(/^l\s*\/\s*(min|分)/i))return 'lmin';
   if(m(/^l\b/i))return 'l';
   if(m(/^(歳|才)/))return 'yr';
-  if(m(/^(bpm|回\s*\/\s*分|\/\s*min)/i))return 'permin';
+  if(m(/^(bpm|brpm|回\s*\/\s*分|\/\s*min)/i))return 'permin';
   return '';
 }
 /* unit conversion into the app's unit; returns [value, note, warn?] */
@@ -756,7 +775,7 @@ function impConv(k,v,u){
   const R=(x,n)=>[x,n,true],W=(x,n)=>[x,n,true];
   switch(k){
     case 'pao2':case 'paco2':case 'pvo2':return u==='kpa'?R(v*7.50062,'kPa→mmHg に換算'):[v,''];
-    case 'sao2':case 'svo2':case 'fio2':return v>0&&v<=1?R(v*100,'小数→% に換算'):[v,''];
+    case 'sao2':case 'svo2':case 'fio2':case 'spo2':return v>0&&v<=1?R(v*100,'小数→% に換算'):[v,''];
     case 'hct':return v>0&&v<=1?R(v*100,'小数→% に換算'):[v,''];
     case 'hb':return u==='gl'||v>30?R(v/10,'g/L→g/dL に換算'):u==='mmol'?R(v*1.611,'mmol/L→g/dL に換算'):[v,''];
     case 'wbc':
