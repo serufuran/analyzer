@@ -1,5 +1,5 @@
 // オフライン用のキャッシュ。版番号は make_pwa.sh が日時で書き換える（版が変わると古いキャッシュを消す）
-const CACHE = 'kc-20261012234200';
+const CACHE = 'kc-20261018111707';
 const OCR_CACHE = 'kc-ocr-5.1.1'; // 文字認識の部品（約13MB）は版をまたいで残す
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
