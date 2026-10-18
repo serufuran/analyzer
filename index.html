@@ -155,6 +155,7 @@ button,input,select{font:inherit;color:inherit}
 .r{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:10px 12px;border-top:1px solid var(--line);background:var(--surface)}
 .res-h+.r{border-top:0}
 .rl{font-size:14px;font-weight:700;min-width:0}
+.rl .rs{font-size:11.5px;font-weight:400;color:var(--muted);margin-left:6px}
 .rl small{display:block;font-size:11.5px;font-weight:400;color:var(--muted);line-height:1.4;margin-top:2px}
 .rv{text-align:right;white-space:nowrap;display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .rv b{font-family:var(--font-num);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
@@ -262,7 +263,7 @@ main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
     <div class="pt-derived" id="ptDerived"></div>
   </section>
   <div id="panels"></div>
-  <p class="foot">計算結果は臨床判断を補助するための目安です。単位・入力値を必ず確認し、施設の基準値・プロトコル・医師の指示に従ってください。入力した値はこの画面の中だけで使い、どこにも保存・送信しません。<span class="plus">＋α</span> は元のExcelになかった項目です。</p>
+  <p class="foot">計算結果は臨床判断を補助するための目安です。単位・入力値を必ず確認し、施設の基準値・プロトコル・医師の指示に従ってください。入力した値はこの画面の中だけで使い、どこにも保存・送信しません。<span class="plus">＋α</span> は研修資料の計算表になく、補足として加えた項目です。</p>
 </main>
 
 <nav class="tabs" aria-label="分野"><div class="wrap" id="tabbar"></div></nav>
@@ -313,7 +314,7 @@ function chips(k,list){return `<span class="chips">${list.map(([v,t])=>`<button 
 const RES=[];
 function R(label,unit,calc,o={}){
   const id='r'+(uid++); RES.push(Object.assign({id,calc},o));
-  return `<div class="r nil" id="${id}"><div class="rl">${label}${o.plus?'<span class="plus">＋α</span>':''}${o.f?`<small>${o.f}</small>`:''}</div><div class="rv"><span><b>—</b><i>${unit||''}</i></span><span class="pill"></span></div><div class="rn"></div></div>`;
+  return `<div class="r nil" id="${id}"${o.dm?` data-dm="${o.dm}"`:''}><div class="rl">${label}${o.plus?'<span class="plus">＋α</span>':''}${o.f?`<small>${o.f}</small>`:''}</div><div class="rv"><span><b>—</b><i>${unit||''}</i></span><span class="pill"></span></div><div class="rn"></div></div>`;
 }
 function sec(title,sub,ins,res,note){
   return `<section class="sec"><header><h2>${title}${sub?`<small>${sub}</small>`:''}</h2></header><div class="io"><div class="ins">${ins}</div><div class="res"><div class="res-h">計算結果</div>${res}</div></div>${note?`<p class="note">${note}</p>`:''}</section>`;
@@ -334,8 +335,7 @@ sec('バイタルサイン','呼吸状態',
  ${F('fio2','FiO₂','%',{cls:'span2',chips:[['21','室内気 21'],['30','30'],['40','40'],['50','50'],['60','60'],['100','100']]})}</div>`,
  R('ROX index','',()=>{const s=g('spo2'),f=D.fio2(),r=g('resp');return ok(s,f,r)&&f>0&&r>0?(s/f)/r:null},{dec:2,f:'（SpO₂ ÷ FiO₂）÷ 呼吸回数　※FiO₂は小数（40% → 0.4）',
    judge:v=>v>=4.88?['ok','4.88以上']:['warn','4.88未満'],
-   note:v=>v===null?'':v>=4.88?'人工呼吸器（挿管）を要さない可能性が高い目安です':'4.88未満では、高流量鼻カニュラ（HFNC）から人工呼吸器への移行に注意が必要です'})+
- R('S/F比','',()=>{const s=g('spo2'),f=D.fio2();return ok(s,f)&&f>0?s/f:null},{dec:0,plus:1,f:'SpO₂ ÷ FiO₂（ROX indexの分子）'}),
+   note:v=>v===null?'':v>=4.88?'人工呼吸器（挿管）を要さない可能性が高い目安です':'4.88未満では、高流量鼻カニュラ（HFNC）から人工呼吸器への移行に注意が必要です'}),
  'ROX indexはHFNC使用中の患者で検証された指標です（開始後2・6・12時間で評価）。呼吸回数は評価タブのAPACHE IIの呼吸数と連動します。')+
 sec('血液ガス','酸塩基・酸素化',
  `<div class="grid">${F('ph','pH','')}${F('pao2','PaO₂','mmHg')}${F('paco2','PaCO₂','mmHg')}${F('hco3','HCO₃⁻','mEq/L')}${F('be','BE','mEq/L',{im:'text',ph:'-3'})}${F('sao2','SaO₂','%')}
@@ -367,7 +367,7 @@ sec('人工呼吸器','メカニクス',
  R('O-index（酸素化指数）','',()=>{const f=D.fio2(),p=g('paw'),a=g('pao2');return ok(f,p,a)&&a>0?f*p*100/a:null},{dec:1,f:'（FiO₂ × 平均気道内圧 Pmean × 100）÷ PaO₂　※FiO₂は小数',note:v=>v===null?'':'値が大きいほど酸素化障害が重いことを示します'})+
  R('RSBI（浅速呼吸指数）','回/分/L',()=>{const r=g('rr'),t=g('tv');return ok(r,t)&&t>0?r/t*1000:null},{dec:0,f:'呼吸回数 ÷ 1回換気量(mL) × 1000',
    judge:v=>v<105?['ok','105未満']:['warn','105以上'],note:v=>v===null?'':'自発呼吸トライアル中の値で評価します。105未満は人工呼吸器離脱の成功を予測する目安です（＋α）'}),
- 'Excelの「MV・RR」からVTを求める方式は、VTを直接入力する形に変更しました（MVは結果側に表示）。');
+ null);
 
 /* 循環 */
 P.circ=
@@ -399,11 +399,21 @@ sec('酸素需給・血行動態','肺動脈カテーテル',
  R('酸素消費係数 VO₂I','mL/分/m²',()=>{const c=g('co'),a=D.cao2(),v=D.cvo2(),b=D.bsa();return ok(c,a,v,b)?c*(a-v)*10/b:null},{dec:0,f:'VO₂ ÷ BSA',judge:rng(120,160)})+
  R('酸素摂取率 O₂ER','%',()=>{const a=D.cao2(),v=D.cvo2();return ok(a,v)&&a>0?(a-v)/a*100:null},{dec:0,f:'VO₂ ÷ DO₂',judge:rng(22,30)})+
  R('SvO₂','%',()=>g('svo2'),{dec:0,f:'入力値の判定',judge:rng(60,80)}),
- '正常値はExcel「酸素分析パラメータ／血行動態パラメータ」の値です。Excel内のVO₂（÷10）とCaO₂（SaO₂を%のまま計算）は、単位が合うよう修正しています。');
+ '正常値は特定行為研修資料「酸素分析パラメータ／血行動態パラメータ」の値です。');
 
 /* 栄養 */
 const AF=[['1.0','寝たきり 1.0'],['1.2','ベッド上安静 1.2'],['1.3','ベッド外活動 1.3'],['1.5','軽労働 1.5']];
 const SF=[['1.0','ストレスなし 1.0'],['1.1','軽度手術 1.1'],['1.2','中等度手術 1.2'],['1.5','高度手術・重症感染 1.5'],['1.35','骨折 1.35'],['1.6','頭部外傷 1.6'],['1.8','広範囲熱傷 1.8']];
+const DMETH=[['wt','① 体重の変化から'],['hct','② Hct から'],['tp','③ TP（血清総蛋白）から'],['na','④ 血清Na から'],['sym','⑤ 症状（重症度）から']];
+const defJ=v=>v<0?['warn','式が不適']:null;
+const defN=v=>v===null?'':v<0?'マイナス値のため、この計算式は適していません（別の計算式を選んでください）':'欠乏量は2〜3日かけて補正。高張性・低張性を考慮すること';
+D.insens=()=>{const w=g('wt'),t=g('temp');return ok(w)?w*15+(ok(t)?200*Math.max(0,t-36.8):0):null};
+D.wexc=()=>{const w=g('wt'),u=g('durine'),st=g('dstool');return ok(w,u)?u+D.insens()+(ok(st)?st:0)-w*5:null};
+D.wmaint=()=>{const e=D.wexc();if(ok(e))return [e,'排泄計算の値を使用'];const w=g('wt'),k=g('wfac');if(ok(w,k))return [w*k,'簡易計算の値を使用'];return null};
+D.wdef=m=>{const w=g('wt');
+  if(m==='wt'){const w0=g('wt0');return ok(w0,w)?(w0-w)*1000:null}
+  if(m==='sym'){const p=g('dpct');return ok(w,p)?w*p/100*1000:null}
+  const x=g(m),b={hct:45,tp:7,na:140}[m];return ok(w,x)&&x>0&&b?(1-b/x)*w*0.6*1000:null};
 P.nut=
 sec('栄養評価','Harris-Benedict',
  `<div class="grid">${F('af','活動係数','',{cls:'span2',chips:AF})}${F('sf','傷害（ストレス）係数','',{cls:'span2',chips:SF})}</div>`,
@@ -414,10 +424,30 @@ sec('栄養評価','Harris-Benedict',
    f:'男：66.47＋13.75×体重＋5×身長−6.76×年齢<br>女：655.1＋9.56×体重＋1.85×身長−4.67×年齢',note:()=>`性別「${sex()==='m'?'男':'女'}」の式で計算`})+
  R('必要エネルギー量','kcal/日',()=>{const w=g('wt'),h=g('ht'),a=g('age'),af=g('af'),sf=g('sf');if(!ok(w,h,a,af,sf))return null;const b=sex()==='m'?66.47+13.75*w+5*h-6.76*a:655.1+9.56*w+1.85*h-4.67*a;return b*af*sf},{dec:0,f:'BEE × 活動係数 × 傷害係数'}),null)+
 sec('水分量','',
- `<div class="grid">${F('temp','体温','℃')}${F('wfac','必要水分の係数','mL/kg',{chips:[['25','25'],['30','30'],['33','33'],['35','35']]})}</div>`,
- R('必要水分量','mL/日',()=>{const w=g('wt'),k=g('wfac');return ok(w,k)?w*k:null},{dec:0,f:'体重 × 係数（Excelは33）'})+
+ `<div class="grid">${Sel('wfac','必要水分の係数（mL/kg）',[['25','25'],['30','30'],['35','35'],['40','40']])}${F('temp','体温','℃')}${F('durine','尿量','mL/日')}${F('dstool','便中排泄量','mL/日')}</div>`,
+ R('水分維持量<span class="rs">簡易計算</span>','mL/日',()=>{const w=g('wt'),k=g('wfac');return ok(w,k)?w*k:null},{dec:0,f:'体重 × 係数'})+
+ R('水分維持量<span class="rs">排泄計算</span>','mL/日',D.wexc,{dec:0,f:'尿量 ＋ 不感蒸泄 ＋ 便中排泄量 − 代謝水',
+   note:v=>v!==null&&!ok(g('dstool'))?'便中排泄量が未入力のため、0として計算':''})+
  R('代謝水','mL/日',()=>{const w=g('wt');return ok(w)?w*5:null},{dec:0,f:'体重 × 5'})+
- R('不感蒸泄量','mL/日',()=>{const w=g('wt'),t=g('temp');return ok(w,t)?w*15+200*Math.max(0,t-36.8):null},{dec:0,f:'体重 × 15 ＋ 200 ×（体温 − 36.8）',note:()=>{const t=g('temp');return ok(t)&&t<=36.8?'体温が36.8℃以下のため、発熱分は0として計算':''}}),null);
+ R('不感蒸泄量','mL/日',D.insens,{dec:0,f:'体重 × 15 ＋ 200 ×（体温 − 36.8）',note:v=>{if(v===null)return '';const t=g('temp');return !ok(t)?'体温が未入力のため、体重 × 15 のみで計算':t<=36.8?'体温が36.8℃以下のため、発熱分は0として計算':''}}),null)+
+sec('脱水時の水分補正','水分欠乏量と輸液量',
+ `${Sel('dmeth','水分欠乏量の計算式',DMETH,{cls:'span2'})}
+  <div class="grid" data-dm="wt">${F('wt0','健常時の体重','kg')}${F('wt','現在の体重','kg')}</div>
+  <div class="grid" data-dm="hct">${F('hct','Hct','%')}${F('wt','体重','kg')}</div>
+  <div class="grid" data-dm="tp">${F('tp','TP（血清総蛋白）','g/dL')}${F('wt','体重','kg')}</div>
+  <div class="grid" data-dm="na">${F('na','血清Na','mEq/L')}${F('wt','体重','kg')}</div>
+  <div class="grid" data-dm="sym">${F('dpct','欠乏の割合（体重比）','%',{cls:'span2',chips:[['2','軽度 2'],['6','中等度 6'],['7','高度 7'],['10','高度 10'],['14','高度 14']]})}${F('wt','体重','kg')}</div>
+  <p class="lbl" style="margin:4px 0 0">輸液量の計算</p>
+  <div class="grid">${F('dsafe','安全係数','',{chips:[['0.3','0.3'],['0.4','0.4'],['0.5','0.5']]})}${F('doral','経口摂取水分量','mL/日')}</div>`,
+ R('水分欠乏量','mL',()=>D.wdef('wt'),{dm:'wt',dec:0,f:'健常時の体重 − 現在の体重（1 kg = 1,000 mL として表示）',judge:defJ,note:defN})+
+ R('水分欠乏量','mL',()=>D.wdef('hct'),{dm:'hct',dec:0,f:'（1 − 45 ÷ Hct）× 体重 × 0.6',judge:defJ,note:defN})+
+ R('水分欠乏量','mL',()=>D.wdef('tp'),{dm:'tp',dec:0,f:'（1 − 7 ÷ TP）× 体重 × 0.6',judge:defJ,note:defN})+
+ R('水分欠乏量','mL',()=>D.wdef('na'),{dm:'na',dec:0,f:'（1 − 140 ÷ Na）× 体重 × 0.6',judge:defJ,note:defN})+
+ R('水分欠乏量','mL',()=>D.wdef('sym'),{dm:'sym',dec:0,f:'体重 × 欠乏の割合（軽度 2%・中等度 6%・高度 7〜14%）',judge:defJ,note:defN})+
+ R('輸液量','mL/日',()=>{const d=D.wdef(S.dmeth),k=g('dsafe'),m=D.wmaint(),o=g('doral');return m&&ok(d,k,m[0])&&d>=0?d*k+m[0]-(ok(o)?o:0):null},{dec:0,
+   f:'安全係数 × 水分欠乏量 ＋ 水分維持量 − 経口摂取水分量',
+   note:()=>{const d=D.wdef(S.dmeth);if(ok(d)&&d<0)return '水分欠乏量がマイナスのため計算しません';const m=D.wmaint();return m?'水分維持量：'+m[1]:''}}),
+ '安全係数は0.3〜0.5。維持量は①排泄計算②簡易計算の順で優先して使います。<br>高Na血症の補正目安：血清Naの低下は1日10 mEq/L程度まで（慢性の場合）。');
 
 /* 薬剤 */
 P.drug=
@@ -475,11 +505,11 @@ sec('グラスゴー・コーマ・スケール','GCS',gcsIns,
   <label class="chk"><input type="checkbox" id="chk-arf" data-k="arf">急性腎不全あり（Crの点数を2倍）<span class="plus">＋α</span></label>
   ${gcsIns}
   ${Sel('chronic','慢性疾患の加点',[['0','なし 0点'],['2','あり：待機手術後 2点'],['5','あり：非手術・緊急手術後 5点']],{})}
-  <p class="lbl" style="margin:0">年齢は患者情報から。慢性疾患の加点はExcelにない項目です<span class="plus">＋α</span>。</p>
+  <p class="lbl" style="margin:0">年齢は患者情報から。慢性疾患の加点<span class="plus">＋α</span>も含みます。</p>
  </div>
  <div class="res"><div class="res-h">項目別の得点</div><div class="tbl-wrap" style="background:var(--surface)"><table id="apTbl"></table></div></div></div>
  <div class="total"><span>APACHE II 合計<br><small id="apSub" style="color:var(--muted)"></small></span><b id="apTotal">—</b></div>
- <p class="note">FiO₂ 50%以上はA-aDO₂、50%未満はPaO₂で採点。pHがあればpHを使い、HCO₃⁻はpHがないときのみ使用。未測定の項目は0点。Excelの表のNa欄は列が1つずれていたため、原典（Knaus 1985）の配点で計算しています。</p>
+ <p class="note">FiO₂ 50%以上はA-aDO₂、50%未満はPaO₂で採点。pHがあればpHを使い、HCO₃⁻はpHがないときのみ使用。未測定の項目は0点。配点は原典（Knaus 1985）に基づきます。</p>
 </section>
 </div><div data-subp="burn" hidden>`+
 sec('熱傷','重症度と初期輸液',
@@ -500,8 +530,8 @@ sec('腎機能','推定クレアチニンクリアランス',
 /* 基準値 */
 const LABS=[
  ['血液ガス',[['pH','ph','7.35〜7.45',7.35,7.45,''],['PaO₂','pao2','80〜100',80,100,'mmHg'],['PaCO₂','paco2','35〜45',35,45,'mmHg'],['HCO₃⁻','hco3','22〜26',22,26,'mEq/L'],['BE','be','−2〜+2',-2,2,'mEq/L'],['SaO₂','sao2','93〜98',93,98,'%']]],
- ['血算',[['RBC','rbc','440〜560',440,560,'万/μL','m'],['RBC','rbc','380〜520',380,520,'万/μL','f'],['WBC','wbc','3.5〜8.5',3.5,8.5,'×10³/μL',null,'Excelは「35〜85 万個/μL」。単位を×10³/μLに修正'],['Hb','hb','14〜18',14,18,'g/dL','m'],['Hb','hb','11〜15',11,15,'g/dL','f'],['Ht','hct','42〜45',42,45,'%','m'],['Ht','hct','38〜42',38,42,'%','f'],['PLT','plt','15〜40',15,40,'万/μL']]],
- ['凝固',[['APTT','aptt','30〜45',30,45,'秒'],['PT','pt','12〜14',12,14,'秒'],['PT活性','ptp','70〜140',70,140,'%'],['PT-INR','inr','0.9〜1.1',0.9,1.1,'','','Excelは「1.0」'],['フィブリノゲン','fib','200〜400',200,400,'mg/dL'],['FDP','fdp','5未満',null,4.999,'μg/mL','','Excelの単位「μl/ml」を修正'],['Dダイマー','dd','1.0以下',null,1.0,'μg/mL','','Excelは「2.0〜8.0 mg/dL」。施設の基準値を確認']]],
+ ['血算',[['RBC','rbc','440〜560',440,560,'万/μL','m'],['RBC','rbc','380〜520',380,520,'万/μL','f'],['WBC','wbc','3.5〜8.5',3.5,8.5,'×10³/μL'],['Hb','hb','14〜18',14,18,'g/dL','m'],['Hb','hb','11〜15',11,15,'g/dL','f'],['Ht','hct','42〜45',42,45,'%','m'],['Ht','hct','38〜42',38,42,'%','f'],['PLT','plt','15〜40',15,40,'万/μL']]],
+ ['凝固',[['APTT','aptt','30〜45',30,45,'秒'],['PT','pt','12〜14',12,14,'秒'],['PT活性','ptp','70〜140',70,140,'%'],['PT-INR','inr','0.9〜1.1',0.9,1.1,''],['フィブリノゲン','fib','200〜400',200,400,'mg/dL'],['FDP','fdp','5未満',null,4.999,'μg/mL'],['Dダイマー','dd','1.0以下',null,1.0,'μg/mL','','施設の基準値を確認']]],
  ['炎症・肝胆膵',[['CRP','crp','0.3以下',null,0.3,'mg/dL'],['AST（GOT）','ast','8〜33',8,33,'IU/L'],['ALT（GPT）','alt','3〜30',3,30,'IU/L'],['LDH','ldh','200〜470',200,470,'U/L'],['ALP','alp','70〜270',70,270,'U/L'],['γ-GTP','ggt','4〜50',4,50,'U/L'],['T-Bil','tbil','0.2〜1.2',0.2,1.2,'mg/dL'],['アミラーゼ','amy','42〜120',42,120,'IU/L'],['アンモニア','nh3','15〜60',15,60,'μg/dL']]],
  ['蛋白・脂質・糖',[['TP','tp','6.5〜8.0',6.5,8.0,'g/dL'],['Alb','alb','3.8〜5.1',3.8,5.1,'g/dL'],['TTT','ttt','0〜5',0,5,'単位'],['ZTT','ztt','4〜12',4,12,'単位'],['総コレステロール','tc','130〜230',130,230,'mg/dL'],['HDLコレステロール','hdl','40〜70',40,70,'mg/dL'],['中性脂肪','tg','60〜130',60,130,'mg/dL'],['血糖','glu','60〜110',60,110,'mg/dL']]],
  ['腎・電解質・筋',[['BUN','bun','8〜20',8,20,'mg/dL'],['Cr','cr','0.7〜1.5',0.7,1.5,'mg/dL','m'],['Cr','cr','0.5〜1.2',0.5,1.2,'mg/dL','f'],['尿酸','ua','3.0〜7.0',3,7,'mg/dL','m'],['尿酸','ua','0.5〜6.0',0.5,6,'mg/dL','f'],['CPK','cpk','58〜145',58,145,'U/L','m'],['CPK','cpk','29〜145',29,145,'U/L','f'],['Na','na','135〜147',135,147,'mEq/L'],['K','k','3.6〜5.0',3.6,5.0,'mEq/L'],['Cl','cl','96〜107',96,107,'mEq/L'],['Ca','ca','8.3〜10.5',8.3,10.5,'mg/dL'],['P','ip','2.7〜4.5',2.7,4.5,'mg/dL']]],
@@ -512,7 +542,7 @@ P.lab=`<section class="sec"><header><h2>検査の基準値<small>値を入れる
  <div class="lab-search"><span class="fi"><input id="labQ" type="search" placeholder="項目名で絞り込み（例：Na、肝）" aria-label="項目名で絞り込み" autocomplete="off"></span></div>
  ${LABS.map(([gname,rows])=>`<div class="lab-g" data-g="${gname}">${gname}</div>`+rows.map(([n,k,r,lo,hi,u,sx,fix])=>{const i=LABROWS.length;LABROWS.push({n,k,lo,hi,sx,g:gname});const id='lab-'+i;
   return `<div class="lab" id="${id}" data-sx="${sx||''}" data-g="${gname}" data-n="${n}"><div class="nm">${n}${sx?`<small>${sx==='m'?'男性':'女性'}</small>`:''}${fix?`<small class="fix">${fix}</small>`:''}</div><div class="rg">${r}<small>${u}</small></div><span class="fi"><input id="${id}-in" data-k="${k}" inputmode="${k==='be'?'text':'decimal'}" autocomplete="off" aria-label="${n}の値"></span></div>`}).join('')).join('')}
- <p class="note" style="padding-top:12px">基準値はExcel「検査結果表」の値です（性別で切り替え）。施設・検査法によって基準値は異なります。ここで入れた値は、他のタブの同じ項目にも反映されます。</p></section>
+ <p class="note" style="padding-top:12px">基準値は特定行為研修資料「検査結果表」の値です（性別で切り替え）。施設・検査法によって基準値は異なります。ここで入れた値は、他のタブの同じ項目にも反映されます。</p></section>
 <section class="sec about" id="about"><header><h2>使用目的と出典</h2></header>
  <div class="about-body">
   <h3>使用目的</h3>
@@ -539,7 +569,9 @@ P.lab=`<section class="sec"><header><h2>検査の基準値<small>値を入れる
    <dt>ROX index</dt><dd>Roca O, et al. Am J Respir Crit Care Med 2019;199:1368-76</dd>
    <dt>O-index（酸素化指数）</dt><dd>Ortiz RM, et al. Pediatr Clin North Am 1987;34:39-46／Pediatric Acute Lung Injury Consensus Conference. Pediatr Crit Care Med 2015;16:428-39</dd>
    <dt>RSBI（浅速呼吸指数）</dt><dd>Yang KL, Tobin MJ. N Engl J Med 1991;324:1445-50</dd>
-   <dt>代謝水・必要水分量・不感蒸泄</dt><dd>輸液療法の標準的な教科書（代謝水 体重×5 mL/日）</dd>
+   <dt>代謝水・水分維持量・不感蒸泄</dt><dd>輸液療法の標準的な教科書（代謝水 体重×5 mL/日）</dd>
+   <dt>水分欠乏量（①〜⑤）・輸液量と安全係数</dt><dd>特定行為研修資料「脱水症状に対する輸液による補正」</dd>
+   <dt>高Na血症の補正目安</dt><dd>Adrogué HJ, Madias NE. Hypernatremia. N Engl J Med 2000;342:1493-9</dd>
    <dt>GCS</dt><dd>Teasdale G, Jennett B. Lancet 1974;2:81-4</dd>
    <dt>挿管中の予測V</dt><dd>Rutledge R, et al. J Trauma 1996;41:514-22</dd>
    <dt>APACHE II</dt><dd>Knaus WA, et al. Crit Care Med 1985;13:818-29</dd>
@@ -618,6 +650,7 @@ function compute(){
     const has=ok(v);b.textContent=has?fmt(v,r.dec):'—';el.className='r'+(has?'':' nil');pill.textContent='';pill.className='pill';
     if(has&&r.judge){const j=r.judge(v);if(j){el.classList.add(j[0]);pill.textContent=j[1];pill.classList.add('p-'+j[0])}}
     rn.textContent=r.note?(r.note(has?v:null)||''):''}
+  $$('[data-dm]').forEach(el=>{el.style.display=el.dataset.dm===(S.dmeth||'wt')?'':'none'});
   $('#abInterp').innerHTML=acidBase();
   // rate table
   const m=g('dmg'),vol=g('dml'),w=g('wt');
@@ -628,7 +661,7 @@ function compute(){
   $$('.lab').forEach((row,i)=>{const L=LABROWS[i];row.hidden=!!(L.sx&&L.sx!==sex())||!labMatch(row);const v=g(L.k);row.classList.remove('hi','lo','ok');
     if(ok(v))row.classList.add(L.lo!==null&&v<L.lo?'lo':L.hi!==null&&v>L.hi?'hi':'ok')});
   $$('.lab-g').forEach(h=>{h.hidden=!$$(`.lab[data-g="${h.dataset.g}"]`).some(r=>!r.hidden)});
-  const any=Object.keys(S).some(k=>!['sex','af','sf','wfac','drug','chronic'].includes(k)&&String(S[k]??'')!=='');
+  const any=Object.keys(S).some(k=>!['sex','af','sf','wfac','drug','chronic','dmeth'].includes(k)&&String(S[k]??'')!=='');
   if(!any)$('#exTag').dataset.on='0';
 }
 function labMatch(row){const q=($('#labQ').value||'').trim().toLowerCase();if(!q)return true;return (row.dataset.n+row.dataset.g).toLowerCase().includes(q)}
@@ -662,7 +695,7 @@ function apache(){
 }
 
 /* ---------- example / clear ---------- */
-const DEFAULTS={sex:'m',af:'1.2',sf:'1.2',wfac:'33',drug:'',chronic:'0'};
+const DEFAULTS={sex:'m',af:'1.2',sf:'1.2',wfac:'30',drug:'',chronic:'0',dmeth:'wt'};
 const EXAMPLE={age:'70',ht:'168',wt:'65',ph:'7.31',pao2:'82',paco2:'30',hco3:'15',be:'-10',sao2:'96',fio2:'40',na:'138',cl:'104',alb:'3.0',hb:'10.2',
  tv:'420',rr:'16',pip:'26',pplat:'20',peep:'6',ti:'1.0',sbp:'92',dbp:'52',hr:'112',co:'4.6',svo2:'64',pvo2:'35',cvp:'9',mpap:'24',pawp:'13',
  temp:'38.2',dmg:'4',dml:'20',rate:'3',tgamma:'0.1',gcsE:'3',gcsV:'4',gcsM:'6',resp:'24',spo2:'95',paw:'12',k:'4.1',cr:'1.3',hct:'31',wbc:'14.2',b2:'20',b3:'5'};
