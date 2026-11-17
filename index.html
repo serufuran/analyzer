@@ -56,8 +56,6 @@ button,input,select{font:inherit;color:inherit}
 .top h1{font-size:20px;margin:0;letter-spacing:.02em;text-wrap:balance}
 .top h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);letter-spacing:.04em}
 .ex-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.ex-tag{font-size:12px;color:var(--warn);background:var(--warn-soft);padding:3px 9px;border-radius:99px}
-.ex-tag[data-on="0"]{display:none}
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:7px 12px;font-size:13px;cursor:pointer}
 .btn:active{transform:scale(.97)}
 .btn.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
@@ -90,6 +88,11 @@ button,input,select{font:inherit;color:inherit}
 .imp-alt[open] summary{margin-bottom:8px}
 #ocrBox progress{width:100%;height:8px;accent-color:var(--accent)}
 .ocr-btns label.btn{cursor:pointer}
+.crop-wrap{position:relative;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:10px;overflow:hidden;background:#222;margin:6px 0}
+.crop-wrap img{display:block;width:100%;height:auto;pointer-events:none}
+#cropBox{position:absolute;border:2px solid #FFB000;background:rgba(255,176,0,.15);box-shadow:0 0 0 9999px rgba(0,0,0,.35)}
+.imp-cols{background:var(--warn-soft);border-radius:10px;padding:8px 10px;margin:8px 0;font-size:13.5px}
+.imp-cols .chips{margin-top:6px}
 .ocr-btns label.btn[aria-disabled]{opacity:.5;pointer-events:none}
 .imp-how{margin:0;padding-left:1.3em;font-size:13.5px;display:grid;gap:4px}
 .imp textarea{width:100%;font:15px/1.5 var(--font-num);background:var(--sunk);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;resize:vertical}
@@ -225,9 +228,7 @@ main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
 <header class="top"><div class="wrap">
   <h1>クリティカルケア計算帳<small>特定行為研修　血ガス・循環・栄養・薬剤・スコア</small></h1>
   <div class="ex-bar">
-    <span class="ex-tag" id="exTag" data-on="1">入力例を表示中</span>
     <button class="btn" type="button" id="btnClear">すべてクリア</button>
-    <button class="btn" type="button" id="btnExample">例を入れる</button>
     <button class="btn" type="button" id="btnAbout">出典・使い方</button>
     <button class="btn pri" type="button" id="btnImp">写真から取り込む</button>
   </div>
@@ -238,17 +239,26 @@ main{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
     <header><h2>写真から取り込む<small>検査値・バイタル・呼吸器の設定</small></h2></header>
     <div class="imp-body">
       <ol class="imp-how">
-        <li><b>「撮影して読み取る」</b>を押し、検査結果の表を撮ります。表が画面いっぱいに、まっすぐ写るように撮ってください（明るい場所で、影や反射を避けます）。</li>
-        <li>端末の中で文字を読み、同じ行の項目名と数値を組にして下に並べます。写真はアルバムに保存されず、外部にも送りません。</li>
-        <li>値を確かめ、<b>「チェックした項目を入力」</b>を押してください。</li>
+        <li><b>「撮影する」</b>を押して検査結果やモニタ画面を撮るか、<b>「写真を選ぶ」</b>で撮った写真を選びます。</li>
+        <li>写真の上を指でなぞると、読む範囲を囲めます（<b>今回の値の列だけ</b>を囲むと確実です）。囲まなければ全体を読みます。<b>「読み取る」</b>を押してください。</li>
+        <li>値を確かめ、<b>「チェックした項目を入力」</b>を押します。読み取りは端末の中だけで行い、写真は保存も送信もしません。</li>
       </ol>
+      <details class="imp-alt"><summary>上手に読み取るコツ</summary><ul class="imp-how" style="margin-top:6px">
+        <li>正面から、表が画面の大部分を占めるように撮ります。文字が小さいときは、近づくより範囲を囲む方が確実です。</li>
+        <li>蛍光灯やモニタの反射が文字にかからない角度で撮ります。ピントが合ってから撮ってください。</li>
+        <li>過去の日付の列がある表では、読み取ったあとに表示される「読む列」で、入力したい列を選べます。</li>
+        <li>小数のある項目（Cr・K・Alb・Hb など）で小数点がない値は黄色で表示します。必ず元の値と見比べてください。</li>
+      </ul></details>
       <div class="btn-row ocr-btns">
-        <label class="btn pri" for="ocrCam">撮影して読み取る</label><input type="file" id="ocrCam" accept="image/*" capture="environment" hidden>
-        <label class="btn" for="ocrPick">写真を選んで読み取る</label><input type="file" id="ocrPick" accept="image/*" hidden>
+        <label class="btn pri" for="ocrCam">撮影する</label><input type="file" id="ocrCam" accept="image/*" capture="environment" hidden>
+        <label class="btn" for="ocrPick">写真を選ぶ</label><input type="file" id="ocrPick" accept="image/*" hidden>
       </div>
-      <label class="chk" for="ocrJpn"><input type="checkbox" id="ocrJpn">日本語の項目名も読む（「ナトリウム」など。読み取りに時間がかかります）</label>
+      <div id="ocrCrop" hidden>
+        <div class="crop-wrap" id="cropWrap"><img id="cropImg" alt="読み取る写真"><div id="cropBox" hidden></div></div>
+        <div class="btn-row"><button class="btn pri" type="button" id="cropGo">読み取る</button><button class="btn" type="button" id="cropReset">範囲を解除</button><button class="btn" type="button" id="cropCancel">やめる</button></div>
+      </div>
       <div id="ocrBox" hidden><progress id="ocrProg" max="1" value="0"></progress><p class="imp-other" id="ocrStatus" role="status" style="margin:4px 0 0"></p></div>
-      <details class="imp-alt"><summary>読み取った文字（直接の入力・貼り付け・iPhoneの「テキストをスキャン」もここに）</summary>
+      <details class="imp-alt"><summary>読み取った文字（直接の入力・貼り付けもここに）</summary>
       <textarea id="impText" rows="6" placeholder="読み取った文字がここに入ります。手で直したり、文字を貼り付けたりもできます" aria-label="読み取った文字"></textarea></details>
       <div class="btn-row"><button class="btn" type="button" id="impSample">見本の文字で試す</button><button class="btn" type="button" id="impClear">欄を空にする</button><button class="btn" type="button" id="impClose">閉じる</button></div>
       <div id="impResult"></div>
@@ -551,6 +561,7 @@ P.lab=`<section class="sec"><header><h2>検査の基準値<small>値を入れる
    <li>すべての結果に計算式を表示しています。電卓で検算できます（体表面積・eGFRのようにべき乗を含む式は関数電卓で）。</li>
    <li>「高・低」などの表示は、入力値をここに書いた基準値・区分に当てはめただけのものです。</li>
    <li>患者の氏名などは入力しません。入力値は端末の外に送信しません。</li>
+   <li>入力値は、アプリを閉じても消えないように<b>この端末の中にだけ</b>保存します（次に開いたときに前回の値が出ます）。別の患者に使うときや、共用の端末では、使い終わったら「すべてクリア」を押してください。</li>
   </ul>
   <h3>計算式・スコアの出典</h3>
   <dl class="src">
@@ -576,7 +587,7 @@ P.lab=`<section class="sec"><header><h2>検査の基準値<small>値を入れる
    <dt>挿管中の予測V</dt><dd>Rutledge R, et al. J Trauma 1996;41:514-22</dd>
    <dt>APACHE II</dt><dd>Knaus WA, et al. Crit Care Med 1985;13:818-29</dd>
    <dt>熱傷指数・熱傷予後指数・Baxter法</dt><dd>熱傷診療ガイドライン（日本熱傷学会）／Baxter CR, Shires T. Ann N Y Acad Sci 1968;150:874-94</dd>
-   <dt>写真からの文字認識</dt><dd>Tesseract.js 5.1.1・Tesseract OCR（Apache License 2.0）。端末の中だけで処理します</dd>
+   <dt>写真からの文字認識</dt><dd>PaddleOCR（PP-OCRv5 mobile、Apache License 2.0）・ONNX Runtime Web 1.22.0（MIT License）。端末の中だけで処理します</dd>
    <dt>γ（μg/kg/分）</dt><dd>単位換算のみ。組成は使用者が登録したもの</dd>
    <dt>検査の基準値</dt><dd>特定行為研修資料「検査結果表」（各施設の基準値を優先）</dd>
   </dl>
@@ -585,7 +596,7 @@ P.lab=`<section class="sec"><header><h2>検査の基準値<small>値を入れる
   <ul>
    <li>このアプリは、どなたでも無料で使えます。</li>
    <li>このアプリのプログラム・画面のデザイン・文章・アイコンの著作権は作成者にあります。作成者の許可なく、複製・改変・再配布・転載・販売をすることを禁じます。</li>
-   <li>計算式やスコア表そのものは、上に挙げた出典の著者のものです。文字認識の部品（Tesseract.js）は Apache License 2.0 に従います。</li>
+   <li>計算式やスコア表そのものは、上に挙げた出典の著者のものです。文字認識の部品（PaddleOCR は Apache License 2.0、ONNX Runtime Web は MIT License）は各ライセンスに従います。</li>
   </ul>
  </div></section>`;
 
@@ -661,8 +672,7 @@ function compute(){
   $$('.lab').forEach((row,i)=>{const L=LABROWS[i];row.hidden=!!(L.sx&&L.sx!==sex())||!labMatch(row);const v=g(L.k);row.classList.remove('hi','lo','ok');
     if(ok(v))row.classList.add(L.lo!==null&&v<L.lo?'lo':L.hi!==null&&v>L.hi?'hi':'ok')});
   $$('.lab-g').forEach(h=>{h.hidden=!$$(`.lab[data-g="${h.dataset.g}"]`).some(r=>!r.hidden)});
-  const any=Object.keys(S).some(k=>!['sex','af','sf','wfac','drug','chronic','dmeth'].includes(k)&&String(S[k]??'')!=='');
-  if(!any)$('#exTag').dataset.on='0';
+  saveInput();
 }
 function labMatch(row){const q=($('#labQ').value||'').trim().toLowerCase();if(!q)return true;return (row.dataset.n+row.dataset.g).toLowerCase().includes(q)}
 $('#labQ').addEventListener('input',e=>{e.stopPropagation();compute()});
@@ -696,14 +706,20 @@ function apache(){
 
 /* ---------- example / clear ---------- */
 const DEFAULTS={sex:'m',af:'1.2',sf:'1.2',wfac:'30',drug:'',chronic:'0',dmeth:'wt'};
-const EXAMPLE={age:'70',ht:'168',wt:'65',ph:'7.31',pao2:'82',paco2:'30',hco3:'15',be:'-10',sao2:'96',fio2:'40',na:'138',cl:'104',alb:'3.0',hb:'10.2',
- tv:'420',rr:'16',pip:'26',pplat:'20',peep:'6',ti:'1.0',sbp:'92',dbp:'52',hr:'112',co:'4.6',svo2:'64',pvo2:'35',cvp:'9',mpap:'24',pawp:'13',
- temp:'38.2',dmg:'4',dml:'20',rate:'3',tgamma:'0.1',gcsE:'3',gcsV:'4',gcsM:'6',resp:'24',spo2:'95',paw:'12',k:'4.1',cr:'1.3',hct:'31',wbc:'14.2',b2:'20',b3:'5'};
 function apply(obj){Object.keys(S).forEach(k=>delete S[k]);$$('[data-k]').forEach(el=>setEl(el,''));
   Object.entries(Object.assign({},DEFAULTS,obj)).forEach(([k,v])=>setVal(k,v));compute()}
-$('#btnClear').addEventListener('click',()=>{apply({});$('#exTag').dataset.on='0'});
+/* inputs are kept on this device only, so closing the app (iOS may unload it in the background) does not lose them */
+const INKEY='kc-input';let restoring=true;
+function saveInput(){if(restoring)return;
+  const v={};for(const k of Object.keys(S))if(String(S[k]??'')!=='')v[k]=String(S[k]);
+  try{localStorage.setItem(INKEY,JSON.stringify({v,t:Date.now()}))}catch(e){}}
+function restoreInput(){let o=null;try{o=JSON.parse(localStorage.getItem(INKEY)||'null')}catch(e){o=null}
+  const v=o&&o.v&&typeof o.v==='object'?o.v:{},clean={};
+  for(const [k,x] of Object.entries(v))if(/^[A-Za-z0-9_]+$/.test(k)&&(typeof x==='string'||typeof x==='number'))clean[k]=String(x);
+  apply(clean);restoring=false;saveInput()}
+$('#btnClear').addEventListener('click',()=>{apply({});saveInput()});
 $('#btnAbout').addEventListener('click',()=>{showTab('lab');$('#about').scrollIntoView({block:'start'})});
-$('#btnExample').addEventListener('click',()=>{apply(EXAMPLE);$('#exTag').dataset.on='1'});
+['pagehide','visibilitychange'].forEach(ev=>window.addEventListener(ev,saveInput));
 
 /* ---------- text import (iOS Live Text) ---------- */
 /* Each entry: key in S, label, app unit, aliases, plausible range after conversion, options.
@@ -743,7 +759,7 @@ const IMP_ITEMS=[
  {k:'amy',l:'アミラーゼ',u:'IU/L',a:['AMY','Amy','S-AMY','血清アミラーゼ','アミラーゼ'],r:[1,20000]},
  {k:'nh3',l:'アンモニア',u:'μg/dL',a:['NH3','アンモニア'],r:[1,1000]},
  {k:'tp',l:'TP',u:'g/dL',a:['TP','総蛋白','総タンパク','総たんぱく'],r:[1.5,12],c:'tp'},
- {k:'alb',l:'Alb',u:'g/dL',a:['Alb','ALB','アルブミン'],r:[0.5,6.5],c:'alb'},
+ {k:'alb',l:'Alb',u:'g/dL',a:['Alb','ALB','AIb','AlIb','A1b','アルブミン'],r:[0.5,6.5],c:'alb'},
  {k:'ttt',l:'TTT',u:'単位',a:['TTT'],r:[0,50]},
  {k:'ztt',l:'ZTT',u:'単位',a:['ZTT'],r:[0,80]},
  {k:'tc',l:'総コレステロール',u:'mg/dL',a:['T-Cho','T-CHO','T-cho','TCHO','TC','総コレステロール'],r:[30,1000]},
@@ -756,7 +772,7 @@ const IMP_ITEMS=[
  {k:'cpk',l:'CPK',u:'U/L',a:['CK','CPK','クレアチンキナーゼ','クレアチンホスホキナーゼ'],r:[1,200000]},
  {k:'na',l:'Na',u:'mEq/L',a:['Na','Na+','ナトリウム'],r:[90,200]},
  {k:'k',l:'K',u:'mEq/L',a:['K','K+','カリウム'],r:[1,12],strict:1},
- {k:'cl',l:'Cl',u:'mEq/L',a:['Cl','CL','Cl-','クロール','クロライド','塩素'],r:[50,160]},
+ {k:'cl',l:'Cl',u:'mEq/L',a:['Cl','CL','Cl-','CI','CI-','クロール','クロライド','塩素'],r:[50,160]},
  {k:'ca',l:'Ca',u:'mg/dL',a:['Ca','カルシウム'],r:[2,20],c:'ca'},
  {k:'_p',l:'P',u:'',a:['P'],r:[0.3,250],strict:1},
  {k:'ip',l:'P（無機リン）',u:'mg/dL',a:['IP','Pi','無機リン','血清リン','リン(P)'],r:[0.3,20]},
@@ -969,20 +985,11 @@ function impRender(){
   if(!txt.trim()){$('#impResult').innerHTML='';IMP_LAST=null;return}
   impShow(impParse(txt));
 }
-/* two OCR passes → one list: per item keep the most trustworthy reading, flag disagreements */
-function impMerge(list){
-  const rank={ok:0,warn:1,bad:2},by=new Map(),order=[];
-  list.forEach((r,pass)=>{for(const f of r.found){if(f.dup)continue;if(!by.has(f.key)){by.set(f.key,[]);order.push(f.key)}by.get(f.key).push(Object.assign({},f,{pass}))}});
-  const found=order.map(k=>{
-    // majority vote across readings; ties go to the plausible value, then to the earlier reading
-    const votes={};for(const x of by.get(k))votes[String(x.v)]=(votes[String(x.v)]||0)+(x.st==='bad'?0.25:1);
-    const c=by.get(k).sort((x,y)=>votes[String(y.v)]-votes[String(x.v)]||rank[x.st]-rank[y.st]||x.pass-y.pass);const best=Object.assign({},c[0]);
-    const vals=[...new Set(c.map(x=>String(x.v)))];
-    if(vals.length>1){if(best.st==='ok')best.st='warn';best.note=(best.note?best.note+'／':'')+'読み取り結果が複数ありました（'+vals.join(' / ')+'）'}
-    return best});
-  return {found,other:[...new Set(list.flatMap(r=>r.other))]};
-}
+/* values usually printed with decimals: a whole number may mean the decimal point was not read */
+const DEC_KEYS=new Set(['ph','tp','alb','cr','k','hb','crp','tbil','inr','ca','ip','temp']);
+function impDecCheck(r){for(const f of r.found){if(f.st==='ok'&&DEC_KEYS.has(f.key)&&Number.isInteger(+f.v)&&!/\d[.,．]\d/.test(f.src)){f.st='warn';f.note=(f.note?f.note+'／':'')+'小数点がありません。読み落としの可能性があるので元の値を確認してください'}}return r}
 function impShow(r){
+  impDecCheck(r);
   const box=$('#impResult');IMP_LAST=r;
   if(!r.found.length){box.innerHTML=`<p class="imp-sum">入力できる項目が見つかりませんでした。</p><p class="imp-other">項目名と数値が読み取れているか確認してください。${r.other.length?'対応する入力欄がない項目：'+esc(r.other.join('、')):''}</p>`;return}
   const cur=k=>{const v=S[k];return v===undefined||v===''?'':String(v)};
@@ -996,55 +1003,104 @@ function impShow(r){
    ${r.other.length?`<p class="imp-other">対応する入力欄がないため入れない項目：${esc(r.other.join('、'))}</p>`:''}
    ${applyBar}`;
 }
-/* ---------- photo OCR (Tesseract.js, on device) ---------- */
+/* ---------- photo OCR (PaddleOCR PP-OCRv5 + ONNX Runtime Web, on device) ---------- */
 /* Words come back with positions. Tables are rebuilt row by row: each word's vertical centre is
    corrected for page tilt, words with close centres form one row, and rows are read left to right. */
-const OCR={worker:null,lang:null,busy:false};
+const OCR={busy:false,file:null,url:null,crop:null,data:null,col:null};
 function ocrStatus(t,p){$('#ocrBox').hidden=false;$('#ocrStatus').textContent=t;const pr=$('#ocrProg');if(p==null)pr.removeAttribute('value');else pr.value=p}
-function loadScript(src){return new Promise((res,rej)=>{if(window.Tesseract)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('script'));document.head.appendChild(s)})}
-async function ocrGetWorker(lang){
-  await loadScript('ocr/tesseract.min.js');
-  if(OCR.worker&&OCR.lang===lang)return OCR.worker;
-  if(OCR.worker){try{await OCR.worker.terminate()}catch(e){}OCR.worker=null}
-  const base=new URL('ocr/',location.href).href;
-  OCR.worker=await Tesseract.createWorker(lang,1,{workerPath:base+'worker.min.js',corePath:base,langPath:base,workerBlobURL:false,
-    logger:m=>{if(!OCR.busy)return;const map={'loading tesseract core':'文字認識の準備中','initializing tesseract':'文字認識の準備中','loading language traineddata':'文字データを読み込み中','initializing api':'文字認識の準備中','recognizing text':'文字を読み取り中'};
-      const t=map[m.status];if(t)ocrStatus(t+(m.status==='recognizing text'?`（${OCR.pass||1}/3回目 ${Math.round((m.progress||0)*100)}%）`:''),m.progress)}});
-  await OCR.worker.setParameters({tessedit_pageseg_mode:'11',preserve_interword_spaces:'1'});
-  OCR.lang=lang;return OCR.worker;
+/* ---------- PaddleOCR (PP-OCRv5 mobile) on device: onnxruntime-web, no server ---------- */
+/* Detection gives a probability map of text; each connected region becomes an (oriented) box, which is cut
+   out of the photo, straightened and read by the recognition model (CTC). Everything runs in the browser. */
+const PO={det:null,rec:null,dict:null,loading:null};
+async function poLoad(base,onStep){
+  if(PO.rec)return;
+  if(PO.loading)return PO.loading;
+  base=new URL(base,location.href).href;
+  PO.loading=(async()=>{
+    await loadScript(base+'ort.wasm.min.js');
+    ort.env.wasm.wasmPaths=base;ort.env.wasm.numThreads=1;ort.env.wasm.proxy=false;
+    const opt={executionProviders:['wasm'],graphOptimizationLevel:'all'};
+    onStep&&onStep('文字データを読み込み中（1/2）');
+    PO.det=await ort.InferenceSession.create(base+'det.onnx',opt);
+    onStep&&onStep('文字データを読み込み中（2/2）');
+    PO.rec=await ort.InferenceSession.create(base+'rec.onnx',opt);
+    const t=await fetch(base+'dict.txt').then(r=>{if(!r.ok)throw new Error('dict');return r.text()});
+    PO.dict=['',...t.split('\n'),' '];   // 0 = CTC blank, last = space
+  })();
+  try{await PO.loading}finally{PO.loading=null}
 }
-async function ocrPrepare(file){
-  const url=URL.createObjectURL(file);
-  try{const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('image'));img.src=url});
-    const max=2200,w=img.naturalWidth,h=img.naturalHeight,s=Math.min(1,max/Math.max(w,h));
-    const c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
-    const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);
-    const d=x.getImageData(0,0,c.width,c.height),p=d.data;
-    // grayscale, stretch contrast, and turn light-on-dark screens (monitors, ventilators) into dark-on-light
-    const hist=new Array(256).fill(0),n=p.length/4;
-    for(let i=0;i<p.length;i+=4){const y=Math.round(0.299*p[i]+0.587*p[i+1]+0.114*p[i+2]);p[i]=y;hist[y]++}
-    let lo=0,hi=255,acc=0;for(let v=0;v<256;v++){acc+=hist[v];if(acc>=n*0.02){lo=v;break}}
-    acc=0;for(let v=255;v>=0;v--){acc+=hist[v];if(acc>=n*0.02){hi=v;break}}
-    let mean=0;for(let v=0;v<256;v++)mean+=v*hist[v];mean/=n;
-    const inv=mean<110;
-    if(inv){ // dark screen: coloured text (yellow, red, cyan…) is bright in at least one channel
-      hist.fill(0);const src=x.getImageData(0,0,c.width,c.height).data;
-      for(let i=0;i<p.length;i+=4){const y=Math.max(src[i],src[i+1],src[i+2]);p[i]=y;hist[y]++}
-      lo=0;hi=255;acc=0;for(let v=0;v<256;v++){acc+=hist[v];if(acc>=n*0.02){lo=v;break}}
-      acc=0;for(let v=255;v>=0;v--){acc+=hist[v];if(acc>=n*0.01){hi=v;break}}}
-    const span=Math.max(1,hi-lo);
-    // paper prints stay as plain grayscale: stretching thins the decimal points
-    for(let i=0;i<p.length;i+=4){let y=p[i];if(inv){y=(y-lo)*255/span;y=255-(y<0?0:y>255?255:y)}p[i]=p[i+1]=p[i+2]=y}
-    x.putImageData(d,0,0);return c}
-  finally{URL.revokeObjectURL(url)}
+function loadScript(src){return new Promise((res,rej)=>{if(window.ort)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('script'));document.head.appendChild(s)})}
+/* image (canvas) → normalised BGR tensor, CHW */
+function poTensor(ctx,w,h,mean,std){
+  const p=ctx.getImageData(0,0,w,h).data,n=w*h,f=new Float32Array(3*n);
+  for(let i=0;i<n;i++){const r=p[i*4]/255,g=p[i*4+1]/255,b=p[i*4+2]/255;
+    f[i]=(b-mean[0])/std[0];f[n+i]=(g-mean[1])/std[1];f[2*n+i]=(r-mean[2])/std[2]}
+  return new ort.Tensor('float32',f,[1,3,h,w]);
 }
+async function poDetect(src,maxSide){
+  const W=src.width,H=src.height,s=Math.min(1,maxSide/Math.max(W,H));
+  const w=Math.max(32,Math.round(W*s/32)*32),h=Math.max(32,Math.round(H*s/32)*32);
+  const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(src,0,0,w,h);
+  const out=await PO.det.run({[PO.det.inputNames[0]]:poTensor(x,w,h,[0.485,0.456,0.406],[0.229,0.224,0.225])});
+  const prob=out[PO.det.outputNames[0]].data;c.width=c.height=0;
+  // connected regions of the thresholded map (4-neighbour flood fill)
+  const lab=new Int32Array(w*h),boxes=[],stack=[];let id=0;
+  for(let i=0;i<w*h;i++){if(prob[i]<=0.3||lab[i])continue;id++;
+    let n=0,sx=0,sy=0,sxx=0,syy=0,sxy=0,ps=0;const pts=[];stack.push(i);lab[i]=id;
+    while(stack.length){const k=stack.pop(),px=k%w,py=(k-px)/w;n++;sx+=px;sy+=py;sxx+=px*px;syy+=py*py;sxy+=px*py;ps+=prob[k];pts.push(px,py);
+      if(px>0&&!lab[k-1]&&prob[k-1]>0.3){lab[k-1]=id;stack.push(k-1)}
+      if(px<w-1&&!lab[k+1]&&prob[k+1]>0.3){lab[k+1]=id;stack.push(k+1)}
+      if(py>0&&!lab[k-w]&&prob[k-w]>0.3){lab[k-w]=id;stack.push(k-w)}
+      if(py<h-1&&!lab[k+w]&&prob[k+w]>0.3){lab[k+w]=id;stack.push(k+w)}}
+    if(n<6||ps/n<0.6)continue;
+    // orientation from the region's spread (principal axis), then the extent along both axes
+    const mx=sx/n,my=sy/n,cxx=sxx/n-mx*mx,cyy=syy/n-my*my,cxy=sxy/n-mx*my;
+    let ang=0.5*Math.atan2(2*cxy,cxx-cyy);if(Math.abs(ang)>0.35)ang=0;   // keep near-horizontal text only
+    const ca=Math.cos(ang),sa=Math.sin(ang);let u0=1e9,u1=-1e9,v0=1e9,v1=-1e9;
+    for(let j=0;j<pts.length;j+=2){const dx=pts[j]-mx,dy=pts[j+1]-my,u=dx*ca+dy*sa,v=-dx*sa+dy*ca;if(u<u0)u0=u;if(u>u1)u1=u;if(v<v0)v0=v;if(v>v1)v1=v}
+    let bw=u1-u0+1,bh=v1-v0+1;if(Math.min(bw,bh)<3)continue;
+    // the map marks a shrunken text kernel: grow it back (unclip, ratio 1.5)
+    const d=bw*bh*1.5/(2*(bw+bh));bw+=2*d;bh+=2*d;
+    const ucx=(u0+u1)/2,vcx=(v0+v1)/2,cx=mx+ucx*ca-vcx*sa,cy=my+ucx*sa+vcx*ca;
+    boxes.push({cx:cx*W/w,cy:cy*H/h,bw:bw*W/w,bh:bh*H/h,ang,score:ps/n})}
+  return boxes;
+}
+async function poRecognise(src,b){
+  const H0=48,ratio=b.bw/b.bh,w=Math.min(1280,Math.max(16,Math.round(H0*ratio)));
+  const c=document.createElement('canvas');c.width=w;c.height=H0;const x=c.getContext('2d',{willReadFrequently:true});
+  x.fillStyle='#fff';x.fillRect(0,0,w,H0);
+  x.setTransform(w/b.bw,0,0,H0/b.bh,w/2,H0/2);x.rotate(-b.ang);x.translate(-b.cx,-b.cy);x.drawImage(src,0,0);x.setTransform(1,0,0,1,0,0);
+  const out=await PO.rec.run({[PO.rec.inputNames[0]]:poTensor(x,w,H0,[0.5,0.5,0.5],[0.5,0.5,0.5])});c.width=c.height=0;
+  const t=out[PO.rec.outputNames[0]],[_,T,C]=t.dims,d=t.data;let s='',prev=0,cs=0,cn=0;
+  for(let i=0;i<T;i++){let m=0,mv=-1;for(let j=0;j<C;j++){const v=d[i*C+j];if(v>mv){mv=v;m=j}}
+    if(m!==0&&m!==prev){s+=PO.dict[m]||'';cs+=mv;cn++}prev=m}
+  return {text:s,conf:cn?cs/cn:0};
+}
+/* → the same shape as a Tesseract result, so the existing row/column logic can be reused */
+async function poRead(src,onProg){
+  const boxes=(await poDetect(src,1600)).sort((a,b)=>a.cy-b.cy||a.cx-b.cx);
+  const words=[],lines=[];
+  for(let i=0;i<boxes.length;i++){const b=boxes[i];onProg&&onProg(i/boxes.length);
+    const r=await poRecognise(src,b);const t=r.text.trim().replace(/\b(Sp|SP|Pa|PA|PaC|PAC|Fi|FI|F1|Sv|SV|Sa|SA|Pv|PV|Scv|ScV|p|P|pC|PC|s|S)02\b/g,'$1O2');if(!t)continue;
+    const hw=Math.abs(b.bw/2*Math.cos(b.ang))+Math.abs(b.bh/2*Math.sin(b.ang)),hh=Math.abs(b.bw/2*Math.sin(b.ang))+Math.abs(b.bh/2*Math.cos(b.ang));
+    const bh=b.bh;
+    // one recognised segment may hold several words ("TP 6.2 g/dL"): spread them over the box by character count
+    const parts=t.split(/\s+/),tot=t.replace(/\s+/g,'').length||1;let acc=0;
+    const ux=Math.cos(b.ang),uy=Math.sin(b.ang),L=b.bw;
+    for(const p of parts){const a0=acc/tot,a1=(acc+p.length)/tot;acc+=p.length;
+      const m0=-L/2+a0*L,m1=-L/2+a1*L,x0=b.cx+m0*ux,x1=b.cx+m1*ux,yc=b.cy+((m0+m1)/2)*uy;
+      words.push({text:p,confidence:r.conf*100,bbox:{x0:Math.min(x0,x1),x1:Math.max(x0,x1),y0:yc-bh*0.42,y1:yc+bh*0.42}})}
+    if(b.bw>b.bh*4)lines.push({baseline:{x0:b.cx-hw,y0:b.cy-hw*Math.tan(b.ang),x1:b.cx+hw,y1:b.cy+hw*Math.tan(b.ang)}})}
+  return {words,blocks:[{paragraphs:[{lines}]}]};
+}
+
 function ocrWords(data){
   if(data.words&&data.words.length)return data.words;
   const out=[];for(const b of data.blocks||[])for(const pa of b.paragraphs||[])for(const l of pa.lines||[])for(const w of l.words||[])out.push(w);return out;
 }
 /* passes: [{data, scale}] — several readings of one photo (different modes / sizes). Words are put
    back on the original scale and overlapping words are de-duplicated, keeping the more confident one. */
-function ocrRows(passes){
+function ocrRows(passes,sel){
   const all=[],lines=[];
   for(const {data,scale} of passes){
     for(const w of ocrWords(data))if(w.text&&w.text.trim()&&w.confidence>=15)
@@ -1053,12 +1109,12 @@ function ocrRows(passes){
   const ov=(a,b)=>{const ix=Math.min(a.x1,b.x1)-Math.max(a.x0,b.x0),iy=Math.min(a.y1,b.y1)-Math.max(a.y0,b.y0);if(ix<=0||iy<=0)return 0;
     const i=ix*iy;return i/Math.min((a.x1-a.x0)*(a.y1-a.y0),(b.x1-b.x0)*(b.y1-b.y0))};
   all.sort((a,b)=>b.c-a.c);const words=[];
-  for(const w of all){if(!words.some(k=>ov(k,w)>0.5))words.push(w)}
+  for(const w of all){if(passes.length===1||!words.some(k=>ov(k,w)>0.5))words.push(w)}  // one reading: neighbours may overlap (a small "(65)" under a big "92/52"), keep both
   for(const w of words)w.h=w.y1-w.y0;
   if(!words.length)return '';
   const med=a=>{const s=[...a].sort((p,q)=>p-q);return s[Math.floor(s.length/2)]};
   const H=med(words.map(w=>w.h))||20;
-  // page tilt from the text lines Tesseract found
+  // page tilt from the text lines found
   const slopes=[];for(const {bl,scale} of lines){if((bl.x1-bl.x0)/scale>H*4)slopes.push((bl.y1-bl.y0)/(bl.x1-bl.x0))}
   const k=slopes.length?Math.max(-0.2,Math.min(0.2,med(slopes))):0;
   for(const w of words){w.cy=(w.y0+w.y1)/2-k*(w.x0+w.x1)/2}
@@ -1071,7 +1127,35 @@ function ocrRows(passes){
     for(const w of ws){if(prev){const gap=w.x0-prev.x1;s+=(cjk(prev.t.slice(-1))&&cjk(w.t[0])&&gap<H*0.8)?'':gap>H*1.6?'   ':' '}s+=w.t;prev=w}
     return s};
   rows.forEach(r=>r.ws.sort((a,b)=>a.x0-b.x0));
-  return ocrPairStacked(rows,H,join).join('\n');
+  // tables with past results (several value columns): keep only the chosen column
+  const cols=ocrColumns(rows,H);OCR.cols=null;let use=rows;
+  if(cols){const ci=sel==null||sel>=cols.length?cols.def:sel;OCR.cols={list:cols,sel:ci};
+    const inOther=w=>{if(!ocrNum(w.t))return false;const cx=(w.x0+w.x1)/2;return cols.some((c,j)=>j!==ci&&cx>c.x0-H&&cx<c.x1+H)};
+    use=rows.map(r=>({cy:r.cy,ws:r.ws.filter(w=>!inOther(w))}))}
+  return ocrPairStacked(use,H,join).join('\n');
+}
+const ocrNum=t=>/^[-+]?\d+(?:[.,]\d+)?[HL*↑↓]?$/.test(t.normalize('NFKC'));
+/* "11/18", "2026/11/18", "2026-11-18", "11月18日" → sortable number. "5.6" is a value, not a date */
+const ocrDate=t=>{const s=t.normalize('NFKC'),m=s.match(/^(\d{4}|\d{2})[\/.-](\d{1,2})[\/.-](\d{1,2})$/)||s.match(/^()(\d{1,2})\/(\d{1,2})$/)||s.match(/^()(\d{1,2})月(\d{1,2})日?$/);
+  return m&&+m[2]>=1&&+m[2]<=12&&+m[3]>=1&&+m[3]<=31?((m[1]?+m[1]%100:0)*10000+(+m[2])*100+(+m[3])):null};
+/* value columns: x positions of numbers in rows that also hold an item name; 3 or more rows make a column.
+   Reference ranges ("3.6 ～ 4.8") are left out. A date written above a column becomes its label. */
+function ocrColumns(rows,H){
+  const xs=[];
+  for(const r of rows){if(!r.ws.some(w=>ocrKind(w.t)==='lab'))continue;
+    r.ws.forEach((w,i)=>{if(!ocrNum(w.t))return;const nb=[r.ws[i-1],r.ws[i+1]].filter(Boolean).map(x=>x.t);
+      if(nb.some(t=>/^[~～〜\-－–]$/.test(t)))return;xs.push({x:(w.x0+w.x1)/2})})}
+  xs.sort((a,b)=>a.x-b.x);const cl=[];
+  for(const {x} of xs){const c=cl[cl.length-1];if(c&&x-c.x1<H*2)Object.assign(c,{x1:x,n:c.n+1,s:c.s+x});else cl.push({x0:x,x1:x,n:1,s:x})}
+  const cols=cl.filter(c=>c.n>=3);
+  if(cols.length<2)return null;
+  for(const r of rows){const ds=r.ws.filter(w=>ocrDate(w.t)!=null);if(ds.length<2||r.ws.some(w=>ocrKind(w.t)==='lab'))continue;
+    for(const w of ds){const cx=(w.x0+w.x1)/2;const c=cols.find(c=>cx>c.x0-H*3&&cx<c.x1+H*3);if(c&&c.d==null){c.d=ocrDate(w.t);c.label=w.t}}}
+  cols.forEach((c,i)=>{if(!c.label)c.label=(i+1)+'列目'});
+  // default: the newest date when every column has one; otherwise the first value column
+  cols.dated=cols.every(c=>c.d!=null);
+  cols.def=cols.dated?cols.reduce((b,c,i)=>c.d>cols[b].d?i:b,0):0;
+  return cols;
 }
 /* Monitors, ventilators and flow sheets often print the label in one row and the value in the row
    below (or above): "PEEP  Ppeak  VTe" / "6  26  455". Such a label-only row is paired with the
@@ -1088,6 +1172,18 @@ function ocrKind(t){
 function ocrPairStacked(rows,H,join){
   const info=rows.map(r=>{for(const w of r.ws){w.k=ocrKind(w.t);w.cx=(w.x0+w.x1)/2}
     return {r,nl:r.ws.filter(w=>w.k==='lab').length,nn:r.ws.filter(w=>w.k==='num').length}});
+  // monitor screens: an item name with no value to its right takes the nearest value just below it
+  // (values are often much larger than the names, and the screen is laid out in boxes, not rows)
+  const pre=[],used=new Set();
+  if(info.some(a=>a.nl>0&&a.nn===0)){
+    const nums=info.flatMap(a=>a.r.ws.filter(w=>w.k==='num'));
+    for(const a of info)for(const L of a.r.ws){if(L.k!=='lab'||a.r.ws.some(w=>w.k==='num'&&w.x0>L.x1&&w.x0-L.x1<H*6))continue;
+      const lh=L.y1-L.y0;let best=null,bd=1e9;
+      for(const N of nums){if(used.has(N))continue;const dy=N.y0-L.y1;if(dy<-lh*0.3||dy>lh*4)continue;
+        if(N.x0>L.x1+lh*4||N.x1<L.x0-lh*1.5)continue;const d=Math.max(0,dy)+Math.abs(N.x0-L.x0)*0.5;if(d<bd){bd=d;best=N}}
+      if(best){used.add(best);used.add(L);pre.push(L.t+' '+best.t)}}
+    if(pre.length)for(const a of info){a.r.ws=a.r.ws.filter(w=>!used.has(w));a.nl=a.r.ws.filter(w=>w.k==='lab').length;a.nn=a.r.ws.filter(w=>w.k==='num').length}
+  }
   const pairOf=new Map(),claimed=new Set();
   info.forEach((a,i)=>{
     if(!(a.nl>0&&a.nn===0))return;
@@ -1099,9 +1195,9 @@ function ocrPairStacked(rows,H,join){
         if(b.nn>0){if(!claimed.has(j))found=j;break}}
       if(found>=0){pairOf.set(i,found);claimed.add(found);return}}
   });
-  const out=[];
+  const out=[...pre];
   info.forEach((a,i)=>{
-    if(claimed.has(i))return;
+    if(claimed.has(i)||!a.r.ws.length)return;
     if(!pairOf.has(i)){out.push(join(a.r.ws));return}
     const L=a.r.ws.filter(w=>w.k==='lab'),N=info[pairOf.get(i)].r.ws.filter(w=>w.k==='num');
     const cand=[];for(const l of L)for(const n of N){const d=Math.abs(l.cx-n.cx);if(d<Math.max(l.x1-l.x0,n.x1-n.x0)*1.2+H*2.5)cand.push({l,n,d})}
@@ -1112,41 +1208,64 @@ function ocrPairStacked(rows,H,join){
   });
   return out;
 }
-async function ocrRun(file){
-  if(!file||OCR.busy)return;OCR.busy=true;
-  const lang=$('#ocrJpn').checked?'eng+jpn':'eng';
-  $$('.ocr-btns .btn').forEach(b=>b.setAttribute('aria-disabled','true'));
+/* step 1: show the photo; the user may draw a box around the part to read */
+function ocrOpen(file){
+  if(!file||OCR.busy)return;ocrCloseImg();
+  OCR.file=file;OCR.url=URL.createObjectURL(file);OCR.crop=null;
+  $('#cropImg').src=OCR.url;$('#cropBox').hidden=true;$('#ocrCrop').hidden=false;$('#ocrBox').hidden=true;
+  $('#ocrCam').value='';$('#ocrPick').value='';
+  setTimeout(()=>$('#ocrCrop').scrollIntoView({block:'start',behavior:'smooth'}),50);
+}
+function ocrCloseImg(){if(OCR.url)URL.revokeObjectURL(OCR.url);OCR.url=null;OCR.file=null;OCR.crop=null;$('#cropImg').removeAttribute('src');$('#ocrCrop').hidden=true}
+(()=>{const wrap=$('#cropWrap'),box=$('#cropBox');let st=null;
+  const pos=e=>{const r=wrap.getBoundingClientRect();return [Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)),Math.max(0,Math.min(1,(e.clientY-r.top)/r.height))]};
+  const draw=()=>{const c=OCR.crop;if(!c){box.hidden=true;return}box.hidden=false;
+    Object.assign(box.style,{left:c[0]*100+'%',top:c[1]*100+'%',width:(c[2]-c[0])*100+'%',height:(c[3]-c[1])*100+'%'})};
+  wrap.addEventListener('pointerdown',e=>{if(!OCR.url)return;st=pos(e);wrap.setPointerCapture(e.pointerId);e.preventDefault()});
+  wrap.addEventListener('pointermove',e=>{if(!st)return;const q=pos(e);
+    OCR.crop=[Math.min(st[0],q[0]),Math.min(st[1],q[1]),Math.max(st[0],q[0]),Math.max(st[1],q[1])];draw()});
+  const end=()=>{if(!st)return;st=null;const c=OCR.crop;if(c&&((c[2]-c[0])<0.04||(c[3]-c[1])<0.03)){OCR.crop=null;draw()}};
+  wrap.addEventListener('pointerup',end);wrap.addEventListener('pointercancel',end);
+  $('#cropReset').addEventListener('click',()=>{OCR.crop=null;draw()});
+})();
+/* step 2: read the photo (or the boxed part) */
+async function ocrRun(){
+  if(!OCR.file||OCR.busy)return;OCR.busy=true;
+  $$('.ocr-btns .btn').forEach(b=>b.setAttribute('aria-disabled','true'));$('#cropGo').disabled=true;
   try{
     ocrStatus('写真を準備中',null);
-    const canvas=await ocrPrepare(file);
-    ocrStatus('文字認識の準備中（初回は部品の読み込みに少し時間がかかります）',null);
-    const worker=await ocrGetWorker(lang);
-    // three readings: sparse mode, block mode, and a half-size copy (large digits on screens read better small)
-    const half=document.createElement('canvas');half.width=Math.round(canvas.width/2);half.height=Math.round(canvas.height/2);
-    half.getContext('2d').drawImage(canvas,0,0,half.width,half.height);
-    const passes=[];
-    for(const [i,psm,img,scale] of [[1,'11',canvas,1],[2,'6',canvas,1],[3,'11',half,0.5]]){
-      OCR.pass=i;ocrStatus(`文字を読み取り中（${i}/3回目）`,0);
-      await worker.setParameters({tessedit_pageseg_mode:psm,preserve_interword_spaces:'1'});
-      const {data}=await worker.recognize(img,{},{text:true,blocks:true});
-      passes.push({data,scale});
-    }
-    canvas.width=canvas.height=half.width=half.height=0;
-    const union=ocrRows(passes);
-    $('#impText').value=union;
-    // the half-size reading only helps with large digits, so it does not vote on its own
-    impShow(impMerge([impParse(union),...passes.filter(p=>p.scale===1).map(p=>impParse(ocrRows([p])))]));
+    const img=new Image();await new Promise((res,rej)=>{img.onload=res;img.onerror=()=>rej(new Error('image'));img.src=OCR.url});
+    const W=img.naturalWidth,H=img.naturalHeight,c=OCR.crop||[0,0,1,1];
+    const sx=c[0]*W,sy=c[1]*H,sw=(c[2]-c[0])*W,sh=(c[3]-c[1])*H;
+    // long side about 2000px: shrink big photos, enlarge small boxed parts so small print stays readable
+    const k=Math.min(2.5,2000/Math.max(sw,sh)),cv=document.createElement('canvas');cv.width=Math.round(sw*k);cv.height=Math.round(sh*k);
+    const x=cv.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(img,sx,sy,sw,sh,0,0,cv.width,cv.height);
+    ocrStatus('文字認識の準備中',null);
+    await poLoad('ocr2/',t=>ocrStatus(t+'（初回のみ・約30MB）',null));
+    ocrStatus('文字を読み取り中',0);
+    OCR.data=await poRead(cv,p=>ocrStatus(`文字を読み取り中（${Math.round(p*100)}%）`,p));
+    cv.width=cv.height=0;
+    ocrShow(null);
     const n=IMP_LAST?IMP_LAST.found.length:0;
-    ocrStatus(n?`読み取りが終わりました。${n}項目が見つかりました。下で確認してください。`:'項目が見つかりませんでした。表が大きく、まっすぐ写るように撮り直してください。下の「読み取った文字」で中身を確認できます。',1);
+    ocrStatus(n?`読み取りが終わりました。${n}項目が見つかりました。下で確認してください。`:'項目が見つかりませんでした。表の部分を囲んで読み直すか、撮り直してください。下の「読み取った文字」で中身を確認できます。',1);
     if(n)$('#impResult').scrollIntoView({block:'start',behavior:'smooth'});
   }catch(err){
-    ocrStatus(/script/.test(String(err&&err.message))?'この版では写真の読み取りが使えません。公開版（serufuran.github.io/analyzer）で使ってください。':'読み取りに失敗しました。もう一度試すか、写真を撮り直してください。',0);
-  }finally{OCR.busy=false;$$('.ocr-btns .btn').forEach(b=>b.removeAttribute('aria-disabled'));$('#ocrCam').value='';$('#ocrPick').value=''}
+    ocrStatus(/script|fetch|Failed|backend|dict/i.test(String(err&&err.message))?'文字認識の部品を読み込めませんでした。電波のよい所で、公開版（serufuran.github.io/analyzer）を開いて試してください。':'読み取りに失敗しました。範囲を囲んで読み直すか、写真を撮り直してください。',0);
+  }finally{OCR.busy=false;$$('.ocr-btns .btn').forEach(b=>b.removeAttribute('aria-disabled'));$('#cropGo').disabled=false}
 }
-$('#ocrCam').addEventListener('change',e=>{e.stopPropagation();ocrRun(e.target.files[0])});
-$('#ocrPick').addEventListener('change',e=>{e.stopPropagation();ocrRun(e.target.files[0])});
-try{$('#ocrJpn').checked=localStorage.getItem('kc-ocr-jpn')==='1'}catch(e){}
-$('#ocrJpn').addEventListener('change',e=>{e.stopPropagation();try{localStorage.setItem('kc-ocr-jpn',e.target.checked?'1':'0')}catch(err){}});
+/* rebuild rows (with the chosen value column) and show the list */
+function ocrShow(sel){
+  const text=ocrRows([{data:OCR.data,scale:1}],sel);
+  $('#impText').value=text;impShow(impParse(text));
+  const C=OCR.cols;if(!C)return;
+  $('#impResult').insertAdjacentHTML('afterbegin',`<div class="imp-cols" role="group" aria-label="読む列"><b>値の列が${C.list.length}つあります。</b>${C.list.dated?'日付が一番新しい列を選んでいます。':'<b>1列目を選んでいます。今回の値の列か確かめてください。</b>'}入力したい列を選んでください。
+    <span class="chips">${C.list.map((c,i)=>`<button type="button" class="chip${i===C.sel?' on':''}" data-col="${i}">${esc(c.label)}</button>`).join('')}</span></div>`);
+}
+$('#impResult').addEventListener('click',e=>{const b=e.target.closest('[data-col]');if(b&&OCR.data)ocrShow(+b.dataset.col)});
+$('#ocrCam').addEventListener('change',e=>{e.stopPropagation();ocrOpen(e.target.files[0])});
+$('#ocrPick').addEventListener('change',e=>{e.stopPropagation();ocrOpen(e.target.files[0])});
+$('#cropGo').addEventListener('click',ocrRun);
+$('#cropCancel').addEventListener('click',ocrCloseImg);
 
 let impTimer=null;
 $('#impText').addEventListener('input',e=>{e.stopPropagation();clearTimeout(impTimer);impTimer=setTimeout(impRender,250)});
@@ -1158,10 +1277,9 @@ $('#impResult').addEventListener('click',e=>{if(!e.target.closest('[data-imp-app
   compute();
   keys.forEach(k=>$$(`[data-k="${k}"]`).forEach(el=>{const w=el.closest('.fi')||el;w.classList.remove('hit');void w.offsetWidth;w.classList.add('hit')}));
   $$('.imp-msg').forEach(p=>p.textContent=n?`${n}項目を入力しました。各タブで確認してください。`:'チェックされた項目がありません');
-  if(n)$('#exTag').dataset.on='0';
 });
 $('#impClear').addEventListener('click',()=>{$('#impText').value='';impRender();$('#impText').focus()});
-$('#impClose').addEventListener('click',()=>{$('#impPanel').hidden=true});
+$('#impClose').addEventListener('click',()=>{$('#impPanel').hidden=true;ocrCloseImg()});
 $('#btnImp').addEventListener('click',()=>{const p=$('#impPanel');p.hidden=!p.hidden;if(!p.hidden)p.scrollIntoView({block:'start'})});
 $('#impSample').addEventListener('click',()=>{$('#impText').value=[
  '検体検査結果報告書　（見本）','項目名 結果 単位 基準値',
@@ -1244,7 +1362,7 @@ async function initDrugs(){
     e=>{dgMsg('登録済みの組成を読み込めませんでした。ページを開き直してください（'+(e&&e.code||'')+'）')});
 }
 
-apply(EXAMPLE);
+restoreInput();
 renderDrugs();
 initDrugs();
 const t0=load('kc-tab');showTab(TABS.some(t=>t[0]===t0)?t0:'resp');

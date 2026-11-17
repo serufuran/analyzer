@@ -1,6 +1,6 @@
 // オフライン用のキャッシュ。版番号は make_pwa.sh が日時で書き換える（版が変わると古いキャッシュを消す）
-const CACHE = 'kc-20261018195435';
-const OCR_CACHE = 'kc-ocr-5.1.1'; // 文字認識の部品（約13MB）は版をまたいで残す
+const CACHE = 'kc-20261118062505';
+const OCR_CACHE = 'kc-ocr2-ppocrv5-ort1.22.0'; // 文字認識の部品（約31MB）は版をまたいで残す（中身を替えたら名前も変える）
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -24,7 +24,7 @@ self.addEventListener('fetch', e => {
     }).catch(() => caches.match('index.html')));
     return;
   }
-  if (url.pathname.includes('/ocr/')) {
+  if (url.pathname.includes('/ocr2/')) {
     // 文字認識の部品：初めて使ったときに保存し、以後は保存分を使う
     e.respondWith(caches.open(OCR_CACHE).then(c => c.match(req).then(hit => hit || fetch(req).then(res => {
       if (res.ok) c.put(req, res.clone());
